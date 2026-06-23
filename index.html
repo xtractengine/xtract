@@ -1,0 +1,2207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Xtract — Contract Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* =============================================
+   XTRACT — PROFESSIONAL CONTRACT PLATFORM
+   Dark Luxury Aesthetic — Navy & Gold
+   ============================================= */
+
+:root {
+  --navy:    #060d1f;
+  --navy2:   #0d1b36;
+  --navy3:   #122347;
+  --gold:    #c9a84c;
+  --gold2:   #e8c86d;
+  --gold3:   rgba(201,168,76,.12);
+  --muted:   #6b7a99;
+  --text:    #d4c8aa;
+  --white:   #f0ead6;
+  --error:   #e05555;
+  --success: #4caf7d;
+  --border:  rgba(201,168,76,.2);
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+body{
+  font-family:'Montserrat',sans-serif;
+  background:var(--navy);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ─── BACKGROUND TEXTURE ─── */
+body::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 20%,
+      rgba(201,168,76,.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%,
+      rgba(201,168,76,.03) 0%, transparent 60%);
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ─── PAGES ─── */
+.page{
+  display:none;
+  position:relative;
+  z-index:1;
+  animation:fadeIn .4s ease;
+}
+.page.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* =============================================
+   NAVIGATION BAR
+   ============================================= */
+nav{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 48px;
+  height:68px;
+  background:rgba(6,13,31,.95);
+  border-bottom:1px solid var(--border);
+  position:sticky;
+  top:0;
+  z-index:100;
+  backdrop-filter:blur(12px);
+}
+
+.nav-logo{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  cursor:pointer;
+}
+
+.nav-logo-mark{
+  width:36px;height:36px;
+  background:var(--gold);
+  border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Cormorant Garamond',serif;
+  font-size:20px;font-weight:600;
+  color:var(--navy);
+  letter-spacing:-1px;
+}
+
+.nav-logo-text{
+  font-family:'Cormorant Garamond',serif;
+  font-size:22px;
+  font-weight:600;
+  color:var(--white);
+  letter-spacing:1px;
+}
+
+.nav-logo-text span{color:var(--gold)}
+
+.nav-links{
+  display:flex;align-items:center;gap:36px;
+}
+
+.nav-link{
+  font-size:11px;
+  font-weight:500;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--muted);
+  cursor:pointer;
+  transition:color .2s;
+  border:none;background:none;
+  padding:4px 0;
+  position:relative;
+}
+
+.nav-link::after{
+  content:'';
+  position:absolute;bottom:-2px;left:0;
+  width:0;height:1px;
+  background:var(--gold);
+  transition:width .3s;
+}
+
+.nav-link:hover,.nav-link.active{color:var(--gold)}
+.nav-link:hover::after,.nav-link.active::after{width:100%}
+
+.nav-right{
+  display:flex;align-items:center;gap:16px;
+}
+
+.nav-user{
+  font-size:11px;letter-spacing:1px;
+  color:var(--muted);
+  display:none;
+}
+
+.nav-logout{
+  font-size:11px;letter-spacing:1px;
+  color:var(--muted);
+  cursor:pointer;
+  background:none;border:none;
+  transition:color .2s;
+  display:none;
+}
+.nav-logout:hover{color:var(--gold)}
+
+/* =============================================
+   LOGIN PAGE
+   ============================================= */
+#loginPage{
+  min-height:100vh;
+  display:flex;align-items:center;justify-content:center;
+  padding:40px 20px;
+}
+
+#loginPage.active{display:flex}
+
+.login-wrap{
+  width:100%;max-width:440px;
+}
+
+.login-brand{
+  text-align:center;margin-bottom:48px;
+}
+
+.login-mark{
+  width:56px;height:56px;
+  background:var(--gold);
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Cormorant Garamond',serif;
+  font-size:30px;font-weight:600;
+  color:var(--navy);
+  margin:0 auto 16px;
+}
+
+.login-brand h1{
+  font-family:'Cormorant Garamond',serif;
+  font-size:32px;font-weight:300;
+  color:var(--white);letter-spacing:2px;
+}
+
+.login-brand h1 span{
+  font-weight:600;color:var(--gold);
+}
+
+.login-brand p{
+  font-size:11px;letter-spacing:2px;
+  color:var(--muted);margin-top:6px;
+  text-transform:uppercase;
+}
+
+.login-card{
+  background:var(--navy2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:40px;
+}
+
+.login-title{
+  font-size:11px;letter-spacing:3px;
+  text-transform:uppercase;
+  color:var(--gold);
+  margin-bottom:28px;
+  text-align:center;
+}
+
+.form-group{margin-bottom:20px}
+
+.form-label{
+  display:block;
+  font-size:10px;letter-spacing:2px;
+  text-transform:uppercase;
+  color:var(--muted);
+  margin-bottom:8px;
+}
+
+.form-input{
+  width:100%;
+  padding:13px 16px;
+  background:var(--navy3);
+  border:1px solid rgba(201,168,76,.15);
+  border-radius:4px;
+  color:var(--white);
+  font-family:'Montserrat',sans-serif;
+  font-size:13px;
+  outline:none;
+  transition:border-color .2s,box-shadow .2s;
+}
+
+.form-input:focus{
+  border-color:var(--gold);
+  box-shadow:0 0 0 3px rgba(201,168,76,.08);
+}
+
+.form-input::placeholder{color:rgba(107,122,153,.6)}
+
+.rem-row{
+  display:flex;align-items:center;
+  gap:10px;margin-bottom:28px;
+}
+
+.rem-row input[type=checkbox]{
+  width:16px;height:16px;
+  accent-color:var(--gold);cursor:pointer;
+}
+
+.rem-row label{
+  font-size:11px;letter-spacing:1px;
+  color:var(--muted);cursor:pointer;
+}
+
+.btn-primary{
+  width:100%;padding:14px;
+  background:var(--gold);
+  color:var(--navy);
+  border:none;border-radius:4px;
+  font-family:'Montserrat',sans-serif;
+  font-size:11px;font-weight:600;
+  letter-spacing:3px;text-transform:uppercase;
+  cursor:pointer;
+  transition:background .2s,transform .1s;
+}
+
+.btn-primary:hover{background:var(--gold2);transform:translateY(-1px)}
+.btn-primary:active{transform:none}
+.btn-primary:disabled{background:var(--navy3);color:var(--muted);cursor:not-allowed;transform:none}
+
+.login-err{
+  font-size:12px;color:var(--error);
+  text-align:center;margin-top:16px;
+  display:none;
+}
+
+.login-footer{
+  text-align:center;margin-top:32px;
+  font-size:11px;color:var(--muted);
+  letter-spacing:1px;
+}
+
+/* =============================================
+   TOOL PAGE (HOME)
+   ============================================= */
+.tool-wrap{
+  max-width:780px;margin:0 auto;
+  padding:48px 24px 80px;
+}
+
+.tool-header{
+  margin-bottom:40px;
+}
+
+.tool-header h2{
+  font-family:'Cormorant Garamond',serif;
+  font-size:28px;font-weight:300;
+  color:var(--white);letter-spacing:1px;
+}
+
+.tool-header p{
+  font-size:12px;color:var(--muted);
+  letter-spacing:1px;margin-top:6px;
+}
+
+.tool-card{
+  background:var(--navy2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:36px;
+  margin-bottom:20px;
+}
+
+.card-section{
+  font-size:10px;letter-spacing:3px;
+  text-transform:uppercase;color:var(--gold);
+  margin-bottom:20px;
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(201,168,76,.1);
+}
+
+.two-col{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:20px;margin-bottom:20px;
+}
+
+.form-hint{
+  font-size:10px;letter-spacing:1px;
+  color:var(--muted);margin-top:4px;
+}
+
+.upload-zone{
+  border:2px dashed rgba(201,168,76,.2);
+  border-radius:6px;
+  padding:36px 24px;
+  text-align:center;
+  cursor:pointer;
+  transition:border-color .3s,background .3s;
+  margin-bottom:6px;
+}
+
+.upload-zone:hover{
+  border-color:var(--gold);
+  background:var(--gold3);
+}
+
+.upload-zone.has-file{
+  border-color:var(--gold);
+  background:var(--gold3);
+}
+
+.upload-ico{font-size:36px;margin-bottom:10px}
+
+.upload-zone h4{
+  font-size:13px;color:var(--white);
+  letter-spacing:1px;margin-bottom:4px;
+}
+
+.upload-zone p{font-size:11px;color:var(--muted)}
+
+.upload-fname{
+  font-size:12px;color:var(--gold);
+  margin-top:8px;display:none;
+  font-weight:500;
+}
+
+input[type=file]{display:none}
+
+/* Excel Link Field */
+.excel-row{
+  display:flex;align-items:center;gap:12px;
+  padding:16px;
+  background:var(--navy3);
+  border:1px solid rgba(201,168,76,.1);
+  border-radius:6px;
+  margin-bottom:20px;
+}
+
+.excel-icon{font-size:24px}
+
+.excel-content{flex:1}
+
+.excel-content label{
+  display:block;font-size:10px;
+  letter-spacing:2px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:6px;
+}
+
+.excel-content input{
+  width:100%;padding:8px 12px;
+  background:transparent;
+  border:none;border-bottom:1px solid rgba(201,168,76,.2);
+  color:var(--white);
+  font-family:'Montserrat',sans-serif;
+  font-size:12px;outline:none;
+  transition:border-color .2s;
+}
+
+.excel-content input:focus{
+  border-bottom-color:var(--gold);
+}
+
+.excel-content input::placeholder{
+  color:rgba(107,122,153,.5);
+}
+
+.excel-badge{
+  font-size:9px;letter-spacing:1px;
+  color:var(--muted);background:var(--navy);
+  padding:3px 8px;border-radius:20px;
+  border:1px solid var(--border);
+  white-space:nowrap;
+}
+
+.action-row{
+  display:flex;gap:12px;
+}
+
+.btn-extract{
+  flex:1;padding:15px;
+  background:var(--gold);color:var(--navy);
+  border:none;border-radius:4px;
+  font-family:'Montserrat',sans-serif;
+  font-size:11px;font-weight:600;
+  letter-spacing:3px;text-transform:uppercase;
+  cursor:pointer;
+  transition:background .2s,transform .1s;
+}
+
+.btn-extract:hover{background:var(--gold2);transform:translateY(-1px)}
+.btn-extract:active{transform:none}
+.btn-extract:disabled{background:var(--navy3);color:var(--muted);cursor:not-allowed;transform:none}
+
+.btn-dl{
+  padding:15px 24px;
+  background:transparent;
+  border:1px solid var(--gold);
+  color:var(--gold);
+  border-radius:4px;
+  font-family:'Montserrat',sans-serif;
+  font-size:11px;font-weight:500;
+  letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;
+  transition:background .2s;
+  display:none;
+}
+
+.btn-dl:hover{background:var(--gold3)}
+
+/* Status / Loading */
+.status-bar{
+  display:none;
+  align-items:center;gap:12px;
+  padding:16px 20px;
+  background:var(--navy3);
+  border-radius:6px;
+  margin-top:16px;
+  font-size:12px;color:var(--muted);
+  letter-spacing:1px;
+}
+
+.spinner{
+  width:18px;height:18px;
+  border:2px solid var(--navy3);
+  border-top:2px solid var(--gold);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+  flex-shrink:0;
+}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.err-bar{
+  display:none;
+  padding:14px 20px;
+  background:rgba(224,85,85,.08);
+  border:1px solid rgba(224,85,85,.3);
+  border-radius:6px;
+  color:var(--error);
+  font-size:12px;
+  letter-spacing:1px;
+  margin-top:16px;
+}
+
+/* Results */
+.result-wrap{
+  display:none;
+  margin-top:24px;
+  background:var(--navy2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  overflow:hidden;
+}
+
+.result-header{
+  display:flex;align-items:center;
+  justify-content:space-between;
+  padding:16px 24px;
+  border-bottom:1px solid var(--border);
+  background:rgba(201,168,76,.05);
+}
+
+.result-header h4{
+  font-size:10px;letter-spacing:3px;
+  text-transform:uppercase;color:var(--gold);
+}
+
+.result-actions{display:flex;gap:8px}
+
+.btn-copy{
+  font-size:10px;letter-spacing:1px;
+  padding:6px 14px;
+  background:var(--gold3);
+  border:1px solid var(--border);
+  color:var(--gold);border-radius:3px;
+  cursor:pointer;transition:background .2s;
+}
+
+.btn-copy:hover{background:rgba(201,168,76,.2)}
+
+.result-body{
+  padding:24px;
+  font-family:'Courier New',monospace;
+  font-size:12px;line-height:2;
+  color:#c8c0a8;
+  max-height:600px;
+  overflow-y:auto;
+  white-space:pre-wrap;
+  background:var(--navy);
+}
+
+.result-body::-webkit-scrollbar{width:4px}
+.result-body::-webkit-scrollbar-track{background:var(--navy)}
+.result-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Excel link bar */
+.excel-link-bar{
+  display:none;
+  margin-top:12px;
+  padding:12px 20px;
+  background:rgba(76,175,125,.08);
+  border:1px solid rgba(76,175,125,.3);
+  border-radius:6px;
+  font-size:11px;color:var(--success);
+  letter-spacing:1px;
+  align-items:center;gap:8px;
+}
+
+.excel-link-bar a{
+  color:var(--gold);
+  text-decoration:underline;
+  cursor:pointer;
+}
+
+/* =============================================
+   PACKAGES PAGE
+   ============================================= */
+.page-wrap{
+  max-width:900px;margin:0 auto;
+  padding:60px 24px 80px;
+}
+
+.page-heading{
+  text-align:center;margin-bottom:60px;
+}
+
+.page-heading h2{
+  font-family:'Cormorant Garamond',serif;
+  font-size:40px;font-weight:300;
+  color:var(--white);letter-spacing:2px;
+}
+
+.page-heading p{
+  font-size:12px;color:var(--muted);
+  letter-spacing:2px;margin-top:10px;
+}
+
+.plans-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:20px;
+  margin-bottom:48px;
+}
+
+.plan-card{
+  background:var(--navy2);
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:32px 24px;
+  text-align:center;
+  transition:transform .2s,box-shadow .2s;
+  position:relative;
+  overflow:hidden;
+}
+
+.plan-card:hover{
+  transform:translateY(-4px);
+  box-shadow:0 20px 40px rgba(0,0,0,.3);
+}
+
+.plan-card.featured{
+  border-color:var(--gold);
+  background:linear-gradient(135deg,var(--navy2),rgba(201,168,76,.06));
+}
+
+.plan-badge{
+  position:absolute;top:16px;right:-24px;
+  background:var(--gold);color:var(--navy);
+  font-size:9px;font-weight:700;letter-spacing:1px;
+  padding:4px 32px;
+  transform:rotate(45deg) translate(8px,-8px);
+}
+
+.plan-name{
+  font-size:10px;letter-spacing:3px;
+  text-transform:uppercase;
+  color:var(--muted);margin-bottom:16px;
+}
+
+.plan-price{
+  font-family:'Cormorant Garamond',serif;
+  font-size:48px;font-weight:300;
+  color:var(--white);line-height:1;
+}
+
+.plan-price span{
+  font-size:18px;color:var(--muted);
+}
+
+.plan-period{
+  font-size:11px;color:var(--muted);
+  letter-spacing:1px;margin-bottom:24px;
+}
+
+.plan-limit{
+  font-size:13px;color:var(--gold);
+  font-weight:500;letter-spacing:1px;
+  margin-bottom:24px;
+  padding:8px 16px;
+  background:var(--gold3);
+  border-radius:4px;
+  display:inline-block;
+}
+
+.plan-features{
+  list-style:none;
+  font-size:11px;color:var(--muted);
+  letter-spacing:1px;
+  text-align:left;
+  margin-bottom:28px;
+}
+
+.plan-features li{
+  padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.04);
+  display:flex;align-items:center;gap:8px;
+}
+
+.plan-features li::before{
+  content:'—';color:var(--gold);
+  font-size:10px;flex-shrink:0;
+}
+
+.btn-plan{
+  width:100%;padding:12px;
+  background:transparent;
+  border:1px solid var(--gold);
+  color:var(--gold);border-radius:4px;
+  font-family:'Montserrat',sans-serif;
+  font-size:10px;font-weight:600;
+  letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;transition:background .2s;
+}
+
+.btn-plan:hover,.plan-card.featured .btn-plan{
+  background:var(--gold);color:var(--navy);
+}
+
+/* =============================================
+   FAQ PAGE
+   ============================================= */
+.faq-list{max-width:680px;margin:0 auto}
+
+.faq-item{
+  border-bottom:1px solid var(--border);
+  padding:24px 0;
+  cursor:pointer;
+}
+
+.faq-q{
+  display:flex;align-items:center;
+  justify-content:space-between;gap:16px;
+}
+
+.faq-q h4{
+  font-size:14px;font-weight:400;
+  color:var(--white);letter-spacing:.5px;
+  line-height:1.5;
+}
+
+.faq-icon{
+  color:var(--gold);font-size:20px;
+  transition:transform .3s;
+  flex-shrink:0;
+}
+
+.faq-item.open .faq-icon{transform:rotate(45deg)}
+
+.faq-a{
+  font-size:13px;color:var(--muted);
+  line-height:1.8;letter-spacing:.5px;
+  padding-top:16px;
+  display:none;
+}
+
+.faq-item.open .faq-a{display:block}
+
+/* =============================================
+   CONTACT PAGE
+   ============================================= */
+.contact-grid{
+  display:grid;grid-template-columns:1fr 1fr;
+  gap:48px;max-width:780px;margin:0 auto;
+}
+
+.contact-info h3{
+  font-family:'Cormorant Garamond',serif;
+  font-size:28px;font-weight:300;
+  color:var(--white);margin-bottom:16px;
+}
+
+.contact-info p{
+  font-size:12px;color:var(--muted);
+  line-height:2;letter-spacing:.5px;
+  margin-bottom:32px;
+}
+
+.contact-detail{
+  display:flex;align-items:center;gap:14px;
+  margin-bottom:16px;
+}
+
+.contact-detail .ico{
+  width:36px;height:36px;
+  background:var(--gold3);
+  border:1px solid var(--border);
+  border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;flex-shrink:0;
+}
+
+.contact-detail p{
+  font-size:12px;color:var(--muted);
+  letter-spacing:.5px;margin:0;
+}
+
+.contact-detail strong{
+  display:block;color:var(--white);
+  font-size:13px;margin-bottom:2px;
+}
+
+.contact-form .form-group{margin-bottom:16px}
+
+.contact-form textarea{
+  width:100%;
+  padding:13px 16px;
+  background:var(--navy3);
+  border:1px solid rgba(201,168,76,.15);
+  border-radius:4px;
+  color:var(--white);
+  font-family:'Montserrat',sans-serif;
+  font-size:13px;
+  outline:none;
+  resize:vertical;
+  min-height:120px;
+  transition:border-color .2s;
+}
+
+.contact-form textarea:focus{border-color:var(--gold)}
+.contact-form textarea::placeholder{color:rgba(107,122,153,.6)}
+
+.contact-sent{
+  display:none;
+  padding:16px;
+  background:rgba(76,175,125,.08);
+  border:1px solid rgba(76,175,125,.3);
+  border-radius:6px;
+  color:var(--success);
+  font-size:12px;letter-spacing:1px;
+  text-align:center;
+  margin-top:12px;
+}
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+@media(max-width:680px){
+  nav{padding:0 20px}
+  .nav-links{gap:16px}
+  .two-col{grid-template-columns:1fr}
+  .contact-grid{grid-template-columns:1fr}
+  .tool-card{padding:24px 20px}
+  .action-row{flex-direction:column}
+  .btn-dl{width:100%}
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================
+     NAVIGATION
+     ============================================ -->
+<nav id="mainNav" style="display:none">
+  <div class="nav-logo" onclick="showPage('tool')">
+    <div class="nav-logo-mark">X</div>
+    <div class="nav-logo-text">
+      <span>X</span>tract
+    </div>
+  </div>
+
+  <div class="nav-links">
+    <button class="nav-link active"
+      onclick="showPage('tool')" id="navHome">
+      Home
+    </button>
+    <button class="nav-link"
+      onclick="showPage('packages')" id="navPkg">
+      Packages
+    </button>
+    <button class="nav-link"
+      onclick="showPage('faq')" id="navFaq">
+      FAQ
+    </button>
+    <button class="nav-link"
+      onclick="showPage('contact')" id="navContact">
+      Contact
+    </button>
+    <button class="nav-link"
+      onclick="showPage('settings')" id="navSettings">
+      Settings
+    </button>
+  </div>
+
+  <div class="nav-right">
+    <span class="nav-user" id="navUser"></span>
+    <button class="nav-logout" id="navLogout"
+      onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<!-- ============================================
+     PAGE 1 — LOGIN
+     ============================================ -->
+<div id="loginPage" class="page active">
+  <div class="login-wrap">
+
+    <div class="login-brand">
+      <div class="login-mark">X</div>
+      <h1><span>X</span>tract</h1>
+      <p>Contract Intelligence Platform</p>
+    </div>
+
+    <div class="login-card">
+      <div class="login-title">Sign In to Your Account</div>
+
+      <div class="form-group">
+        <label class="form-label">Company Name</label>
+        <input class="form-input" type="text"
+          id="loginName"
+          placeholder="ABC Escrow Company"
+          onkeyup="loginChk()"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password"
+          id="loginPw"
+          placeholder="Your access password"
+          onkeyup="loginChk()"
+          onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+
+      <div class="rem-row">
+        <input type="checkbox" id="rememberMe" checked>
+        <label for="rememberMe">
+          Remember me on this device
+        </label>
+      </div>
+
+      <button class="btn-primary" id="loginBtn"
+        onclick="doLogin()" disabled>
+        Sign In
+      </button>
+
+      <div class="login-err" id="loginErr"></div>
+    </div>
+
+    <div class="login-footer">
+      Need access? Contact us at hello@xtract.io
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================
+     PAGE 2 — TOOL (HOME)
+     ============================================ -->
+<div id="toolPage" class="page">
+  <div class="tool-wrap">
+
+    <div class="tool-header">
+      <h2>Extract Contract Data</h2>
+      <p>Upload a TREC contract PDF and get structured data instantly</p>
+    </div>
+
+    <div class="tool-card">
+      <div class="card-section">Contract Details</div>
+
+      <div class="two-col">
+        <div class="form-group">
+          <label class="form-label">File No.</label>
+          <input class="form-input" type="text"
+            id="fileNo"
+            placeholder="e.g. 2026-001 (optional)">
+          <div class="form-hint">
+            Leave blank to auto-assign N/A
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contract PDF</label>
+          <div class="upload-zone" id="uploadZone"
+            onclick="document.getElementById('pdfInput').click()">
+            <div class="upload-ico">📄</div>
+            <h4 id="uploadTitle">Click to Upload</h4>
+            <p id="uploadSub">TREC contract PDF only</p>
+            <div class="upload-fname" id="uploadFname"></div>
+          </div>
+          <input type="file" id="pdfInput"
+            accept=".pdf" onchange="onFile(this)">
+        </div>
+      </div>
+
+      <!-- Optional Excel Sheet Link -->
+      <div class="excel-row">
+        <div class="excel-icon">📊</div>
+        <div class="excel-content">
+          <label>Online Excel / Google Sheet Link</label>
+          <input type="url" id="excelLink"
+            placeholder="Paste your sheet link here (optional)">
+        </div>
+        <div class="excel-badge">Optional</div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn-extract" id="extractBtn"
+          onclick="doExtract()" disabled>
+          Extract Contract Data
+        </button>
+        <button class="btn-dl" id="dlBtn"
+          onclick="dlResult()">
+          Download
+        </button>
+      </div>
+
+      <div class="status-bar" id="statusBar">
+        <div class="spinner"></div>
+        <span>Reading contract — 15 to 30 seconds</span>
+      </div>
+
+      <div class="err-bar" id="errBar"></div>
+    </div>
+
+    <!-- Results -->
+    <div class="result-wrap" id="resultWrap">
+      <div class="result-header">
+        <h4>Extraction Complete</h4>
+        <div class="result-actions">
+          <button class="btn-copy" onclick="copyResult()">
+            Copy All
+          </button>
+        </div>
+      </div>
+      <div class="result-body" id="resultBody"></div>
+    </div>
+
+    <!-- Excel status bar -->
+    <div id="excelBar" style="display:none;margin-top:12px;
+      padding:14px 20px;border-radius:6px;
+      font-size:12px;letter-spacing:1px;
+      align-items:center;gap:10px">
+    </div>
+
+    <!-- COMMITMENT SECTION -->
+    <div class="tool-card" style="margin-top:24px">
+      <div class="card-section">
+        Title Commitment — XML for RamQuest
+      </div>
+
+      <div class="two-col">
+        <div>
+          <label class="form-label">
+            Closer / Signatory Name
+          </label>
+          <input class="form-input" type="text"
+            id="commitSignatory"
+            placeholder="e.g. Jayla (optional)"
+            style="margin-bottom:0">
+          <div class="form-hint">
+            Leave blank to fill in RamQuest manually
+          </div>
+        </div>
+        <div>
+          <label class="form-label">
+            Upload Commitment PDF
+          </label>
+          <div class="upload-zone" id="commitZone"
+            onclick="document.getElementById('commitInput').click()"
+            style="padding:20px">
+            <div class="upload-ico"
+              style="font-size:24px;margin-bottom:6px">
+              📋
+            </div>
+            <h4 id="commitTitle"
+              style="font-size:12px;margin-bottom:2px">
+              Click to Upload
+            </h4>
+            <p id="commitSub"
+              style="font-size:11px">
+              Title commitment PDF
+            </p>
+          </div>
+          <input type="file" id="commitInput"
+            accept=".pdf"
+            onchange="onCommitFile(this)">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px">
+        <button class="btn-extract" id="commitBtn"
+          onclick="doCommitment()"
+          style="background:transparent;
+            border:1px solid var(--gold);
+            color:var(--gold);"
+          disabled>
+          Extract Commitment + Generate XML
+        </button>
+        <button class="btn-dl" id="xmlBtn"
+          onclick="dlXML()"
+          style="display:none">
+          Download XML
+        </button>
+      </div>
+
+      <div class="status-bar" id="commitStatus"
+        style="display:none">
+        <div class="spinner"></div>
+        <span>
+          Reading commitment — 20-40 seconds
+        </span>
+      </div>
+
+      <div class="err-bar" id="commitErr"
+        style="display:none">
+      </div>
+    </div>
+
+    <!-- Commitment Results -->
+    <div class="result-wrap" id="commitWrap"
+      style="display:none;margin-top:20px">
+      <div class="result-header">
+        <h4>Commitment Extraction Complete</h4>
+        <div class="result-actions">
+          <button class="btn-copy"
+            onclick="copyCommit()">
+            Copy All
+          </button>
+        </div>
+      </div>
+      <div class="result-body"
+        id="commitBody"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================
+     SETTINGS PAGE
+     ============================================ -->
+<div id="settingsPage" class="page">
+  <div class="tool-wrap">
+
+    <div class="tool-header">
+      <h2>Your Settings</h2>
+      <p>
+        Choose which fields go to your Excel
+        sheet and link your Google Sheet
+      </p>
+    </div>
+
+    <!-- Google Sheet Link -->
+    <div class="tool-card">
+      <div class="card-section">
+        Your Google Sheet Link
+      </div>
+      <p style="font-size:12px;color:var(--muted);
+        line-height:1.8;margin-bottom:20px">
+        Paste your Google Sheet URL below.
+        Every extraction automatically adds
+        a new row with your selected fields.
+        <br><br>
+        <strong style="color:var(--gold)">
+          Important:
+        </strong>
+        Share your sheet with the Xtract
+        service email as Editor first.
+      </p>
+      <label class="form-label">
+        Google Sheet URL
+      </label>
+      <input class="form-input" type="url"
+        id="settingsSheetLink"
+        placeholder=
+"https://docs.google.com/spreadsheets/d/...">
+      <div class="form-hint"
+        style="margin-bottom:20px">
+        Paste your full Google Sheet link
+      </div>
+    </div>
+
+    <!-- Field Checkboxes -->
+    <div class="tool-card">
+      <div class="card-section">
+        Select Fields for Your Excel Sheet
+      </div>
+      <p style="font-size:12px;color:var(--muted);
+        line-height:1.8;margin-bottom:24px">
+        Checked fields are automatically added
+        to your Excel after each extraction.
+        Unchecked fields still appear on screen.
+      </p>
+      <div id="fieldCheckboxes"
+        style="display:grid;
+          grid-template-columns:
+            repeat(auto-fill,minmax(220px,1fr));
+          gap:12px;margin-bottom:28px">
+      </div>
+      <div style="display:flex;
+        align-items:center;gap:12px;flex-wrap:wrap">
+        <button class="btn-primary"
+          onclick="saveSettings()"
+          style="flex:1;min-width:160px">
+          Save Settings
+        </button>
+        <button onclick="selectAll()"
+          style="padding:14px 20px;
+            background:transparent;
+            border:1px solid var(--border);
+            color:var(--muted);border-radius:4px;
+            font-size:11px;letter-spacing:1px;
+            cursor:pointer;white-space:nowrap">
+          Select All
+        </button>
+        <button onclick="clearAll()"
+          style="padding:14px 20px;
+            background:transparent;
+            border:1px solid var(--border);
+            color:var(--muted);border-radius:4px;
+            font-size:11px;letter-spacing:1px;
+            cursor:pointer;white-space:nowrap">
+          Clear All
+        </button>
+      </div>
+      <div id="settingsSaved"
+        style="display:none;margin-top:16px;
+          padding:14px;
+          background:rgba(76,175,125,.08);
+          border:1px solid rgba(76,175,125,.3);
+          border-radius:6px;color:#4caf7d;
+          font-size:12px;text-align:center;
+          letter-spacing:1px">
+        ✓ Settings saved successfully
+      </div>
+      <div id="settingsErr"
+        style="display:none;margin-top:16px;
+          padding:14px;
+          background:rgba(224,85,85,.08);
+          border:1px solid rgba(224,85,85,.3);
+          border-radius:6px;color:#e05555;
+          font-size:12px;text-align:center;
+          letter-spacing:1px">
+      </div>
+    </div>
+
+    <!-- How to link sheet -->
+    <div class="tool-card"
+      style="background:rgba(201,168,76,.03)">
+      <div class="card-section">
+        How to Link Your Google Sheet
+      </div>
+      <div style="display:flex;flex-direction:column;
+        gap:16px">
+        <div style="display:flex;
+          align-items:flex-start;gap:16px">
+          <div style="width:28px;height:28px;
+            background:var(--gold);
+            color:var(--navy);border-radius:50%;
+            display:flex;align-items:center;
+            justify-content:center;
+            font-size:12px;font-weight:bold;
+            flex-shrink:0">1</div>
+          <div>
+            <p style="font-size:13px;
+              color:var(--white);margin-bottom:4px">
+              Open your Google Sheet
+            </p>
+            <p style="font-size:11px;
+              color:var(--muted);line-height:1.6">
+              Create a new blank Google Sheet
+              or use an existing one
+            </p>
+          </div>
+        </div>
+        <div style="display:flex;
+          align-items:flex-start;gap:16px">
+          <div style="width:28px;height:28px;
+            background:var(--gold);
+            color:var(--navy);border-radius:50%;
+            display:flex;align-items:center;
+            justify-content:center;
+            font-size:12px;font-weight:bold;
+            flex-shrink:0">2</div>
+          <div>
+            <p style="font-size:13px;
+              color:var(--white);margin-bottom:4px">
+              Share it with Xtract
+            </p>
+            <p style="font-size:11px;
+              color:var(--muted);line-height:1.6">
+              Click Share → add your Xtract
+              service email as Editor
+            </p>
+          </div>
+        </div>
+        <div style="display:flex;
+          align-items:flex-start;gap:16px">
+          <div style="width:28px;height:28px;
+            background:var(--gold);
+            color:var(--navy);border-radius:50%;
+            display:flex;align-items:center;
+            justify-content:center;
+            font-size:12px;font-weight:bold;
+            flex-shrink:0">3</div>
+          <div>
+            <p style="font-size:13px;
+              color:var(--white);margin-bottom:4px">
+              Copy the URL and paste above
+            </p>
+            <p style="font-size:11px;
+              color:var(--muted);line-height:1.6">
+              Paste full URL from browser
+              address bar → Save Settings
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================
+     PAGE 3 — PACKAGES
+     ============================================ -->
+<div id="packagesPage" class="page">
+  <div class="page-wrap">
+
+    <div class="page-heading">
+      <h2>Simple Pricing</h2>
+      <p>No hidden fees — cancel anytime</p>
+    </div>
+
+    <div class="plans-grid">
+
+      <div class="plan-card">
+        <div class="plan-name">Trial</div>
+        <div class="plan-price">
+          <span>$</span>0
+        </div>
+        <div class="plan-period">7 days free</div>
+        <div class="plan-limit">5 Contracts</div>
+        <ul class="plan-features">
+          <li>Full extraction output</li>
+          <li>Results on screen</li>
+          <li>Download results</li>
+          <li>Email support</li>
+        </ul>
+        <button class="btn-plan"
+          onclick="showPage('contact')">
+          Get Trial Access
+        </button>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">
+          <span>$</span>49
+        </div>
+        <div class="plan-period">per month</div>
+        <div class="plan-limit">50 Contracts / mo</div>
+        <ul class="plan-features">
+          <li>All Trial features</li>
+          <li>Remember Me login</li>
+          <li>Auto Excel rows</li>
+          <li>Custom File No.</li>
+        </ul>
+        <button class="btn-plan"
+          onclick="showPage('contact')">
+          Get Started
+        </button>
+      </div>
+
+      <div class="plan-card featured">
+        <div class="plan-badge">Popular</div>
+        <div class="plan-name">Professional</div>
+        <div class="plan-price">
+          <span>$</span>99
+        </div>
+        <div class="plan-period">per month</div>
+        <div class="plan-limit">150 Contracts / mo</div>
+        <ul class="plan-features">
+          <li>All Starter features</li>
+          <li>Custom columns</li>
+          <li>Priority support</li>
+          <li>Sheet integration</li>
+        </ul>
+        <button class="btn-plan"
+          onclick="showPage('contact')">
+          Get Started
+        </button>
+      </div>
+
+      <div class="plan-card">
+        <div class="plan-name">Business</div>
+        <div class="plan-price">
+          <span>$</span>199
+        </div>
+        <div class="plan-period">per month</div>
+        <div class="plan-limit">500 Contracts / mo</div>
+        <ul class="plan-features">
+          <li>All Pro features</li>
+          <li>Team access</li>
+          <li>Bulk processing</li>
+          <li>Dedicated support</li>
+        </ul>
+        <button class="btn-plan"
+          onclick="showPage('contact')">
+          Get Started
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================
+     PAGE 4 — FAQ
+     ============================================ -->
+<div id="faqPage" class="page">
+  <div class="page-wrap">
+
+    <div class="page-heading">
+      <h2>Frequently Asked Questions</h2>
+      <p>Everything you need to know about Xtract</p>
+    </div>
+
+    <div class="faq-list">
+
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <h4>What type of contracts does Xtract support?</h4>
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">
+          Xtract is specifically built for TREC One to Four Family
+          Residential Contract (Resale) — TREC NO. 20-18. It extracts
+          all key fields including closing date, sales price, parties,
+          broker information, earnest money, HOA, title policy, survey,
+          option period, and more.
+        </div>
+      </div>
+
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <h4>How long does extraction take?</h4>
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">
+          Typically 15 to 30 seconds per contract. Results appear
+          directly on your screen — no email, no waiting, no refresh.
+          Simply upload, click Extract, and your structured data is ready.
+        </div>
+      </div>
+
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <h4>Is my contract data secure?</h4>
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">
+          Yes. Your contracts are processed securely and never stored
+          on our servers. Data is transmitted over encrypted HTTPS
+          connections. Each client has a unique password and their
+          data is completely isolated from other clients.
+        </div>
+      </div>
+
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <h4>Can I connect my own Excel or Google Sheet?</h4>
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">
+          Yes. Each extraction automatically adds a new row to your
+          dedicated sheet inside our system. Additionally, you can
+          optionally paste your own Google Sheet link and we will
+          display it for quick access after each extraction.
+        </div>
+      </div>
+
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <h4>What is File No. and is it required?</h4>
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">
+          File No. is your internal reference number for the contract
+          (e.g. 2026-001). It is completely optional. If you leave it
+          blank, the system automatically assigns N/A. This number
+          appears as the first column in your extraction history.
+        </div>
+      </div>
+
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <h4>Do I need to log in every time?</h4>
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">
+          No. Check the Remember Me box on your first login and your
+          credentials are saved securely in your browser. Future visits
+          go directly to the tool — just enter File No., upload PDF,
+          and click Extract.
+        </div>
+      </div>
+
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <h4>Can I request additional data fields?</h4>
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">
+          Yes. Professional and Business plan clients can request
+          additional columns to be added to their extraction output
+          and Excel sheet. Contact us and we typically implement
+          requests within 24-48 hours.
+        </div>
+      </div>
+
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <h4>What happens when I reach my monthly limit?</h4>
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">
+          You will see a clear message when your limit is reached.
+          Contact us to upgrade your plan and we will increase your
+          limit immediately. Limits reset at the start of each
+          billing month.
+        </div>
+      </div>
+
+      <div class="faq-item" onclick="toggleFaq(this)">
+        <div class="faq-q">
+          <h4>How do I get started?</h4>
+          <span class="faq-icon">+</span>
+        </div>
+        <div class="faq-a">
+          Contact us via the Contact page or email hello@xtract.io.
+          We will set up your account, send you login credentials,
+          and you can be extracting contracts within the same day.
+          A 7-day free trial is available with no credit card required.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================
+     PAGE 5 — CONTACT
+     ============================================ -->
+<div id="contactPage" class="page">
+  <div class="page-wrap">
+
+    <div class="page-heading">
+      <h2>Get in Touch</h2>
+      <p>Start your free trial or ask us anything</p>
+    </div>
+
+    <div class="contact-grid">
+
+      <div class="contact-info">
+        <h3>Let's get you set up</h3>
+        <p>
+          Xtract is designed specifically for escrow companies,
+          title companies, and transaction coordinators who process
+          TREC residential contracts daily. We set up your account
+          personally — usually within a few hours.
+        </p>
+
+        <div class="contact-detail">
+          <div class="ico">✉️</div>
+          <div>
+            <strong>Email</strong>
+            <p>osamamutisyed@gmail.com</p>
+          </div>
+        </div>
+
+        <div class="contact-detail">
+          <div class="ico">📞</div>
+          <div>
+            <strong>Phone / WhatsApp</strong>
+            <p>+92 (308) 224-2428</p>
+          </div>
+        </div>
+
+        <div class="contact-detail">
+          <div class="ico">⏱️</div>
+          <div>
+            <strong>Response Time</strong>
+            <p>Within a few hours — Mon to Fri</p>
+          </div>
+        </div>
+
+        <div class="contact-detail">
+          <div class="ico">🎯</div>
+          <div>
+            <strong>Free Trial</strong>
+            <p>7 days — 5 contracts — no card needed</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="contact-form">
+        <div class="form-group">
+          <label class="form-label">Your Name</label>
+          <input class="form-input" type="text"
+            id="cName" placeholder="John Smith">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Company Name</label>
+          <input class="form-input" type="text"
+            id="cCompany" placeholder="ABC Escrow Company">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" type="email"
+            id="cEmail" placeholder="john@abcescrow.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message</label>
+          <textarea class="form-input" id="cMsg"
+            placeholder="Tell us about your needs or request a free trial..."></textarea>
+        </div>
+        <button class="btn-primary"
+          onclick="sendContact()">
+          Send Message
+        </button>
+        <div class="contact-sent" id="contactSent">
+          ✓ Message sent — we will be in touch shortly.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============================================
+     JAVASCRIPT
+     ============================================ -->
+<script>
+// ============================================
+// CONFIGURATION
+// Replace with your real Apps Script URL
+// ============================================
+const BACKEND = 'https://script.google.com/macros/s/AKfycbxWTmFruD_qSL7MNBMZ134UiqqSTVfU39O31PDlVPGyvpL9lJVJ2zD-VrsPzv2TiI4EYw/exec';
+
+let currentUser    = null;
+let extractedText  = '';
+let pdfFile        = null;
+let commitFile     = null;
+let commitText     = '';
+let xmlText        = '';
+let clientSettings = {
+  selectedFields: [],
+  allFields     : [],
+  excelSheetId  : ''
+};
+
+// ============================================
+// ON PAGE LOAD
+// ============================================
+window.onload = () => {
+  const s = localStorage.getItem('xtract_auth');
+  if (s) {
+    currentUser = JSON.parse(s);
+    loadSettings().then(() => showApp());
+  }
+};
+
+// ============================================
+// LOGIN
+// ============================================
+function loginChk() {
+  const n = document.getElementById('loginName').value.trim();
+  const p = document.getElementById('loginPw').value.trim();
+  document.getElementById('loginBtn').disabled = !(n && p);
+}
+
+async function doLogin() {
+  const name = document.getElementById('loginName').value.trim();
+  const pw   = document.getElementById('loginPw').value.trim();
+  const rem  = document.getElementById('rememberMe').checked;
+  if (!name || !pw) return;
+
+  const btn = document.getElementById('loginBtn');
+  btn.textContent = 'Signing In...';
+  btn.disabled    = true;
+  document.getElementById('loginErr').style.display = 'none';
+
+  try {
+    const res = await fetch(BACKEND, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
+        action: 'login',
+        clientName: name,
+        password  : pw
+      })
+    });
+    const d = await res.json();
+    if (d.error) {
+      document.getElementById('loginErr').textContent = d.error;
+      document.getElementById('loginErr').style.display = 'block';
+      btn.textContent = 'Sign In';
+      btn.disabled    = false;
+      return;
+    }
+    currentUser = {
+      name, pw,
+      plan : d.plan,
+      limit: d.limit
+    };
+    if (rem)
+      localStorage.setItem('xtract_auth',
+        JSON.stringify(currentUser));
+
+    await loadSettings();
+    showApp();
+  } catch(e) {
+    document.getElementById('loginErr').textContent =
+      'Connection error. Please try again.';
+    document.getElementById('loginErr').style.display = 'block';
+    btn.textContent = 'Sign In';
+    btn.disabled    = false;
+  }
+}
+
+function showApp() {
+  document.getElementById('loginPage')
+    .classList.remove('active');
+  document.getElementById('mainNav')
+    .style.display = 'flex';
+  document.getElementById('navUser')
+    .style.display = 'block';
+  document.getElementById('navLogout')
+    .style.display = 'block';
+  document.getElementById('navUser')
+    .textContent = currentUser.name;
+  showPage('tool');
+}
+
+function logout() {
+  localStorage.removeItem('xtract_auth');
+  currentUser = null;
+  document.getElementById('mainNav')
+    .style.display = 'none';
+  document.querySelectorAll('.page')
+    .forEach(p => p.classList.remove('active'));
+  document.getElementById('loginPage')
+    .classList.add('active');
+  document.getElementById('loginName').value = '';
+  document.getElementById('loginPw').value   = '';
+  loginChk();
+}
+
+// ============================================
+// PAGE NAVIGATION
+// ============================================
+function showPage(name) {
+  const map = {
+    tool    : 'toolPage',
+    packages: 'packagesPage',
+    faq     : 'faqPage',
+    contact : 'contactPage',
+    settings: 'settingsPage'
+  };
+  const navMap = {
+    tool    : 'navHome',
+    packages: 'navPkg',
+    faq     : 'navFaq',
+    contact : 'navContact',
+    settings: 'navSettings'
+  };
+  document.querySelectorAll('.page')
+    .forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-link')
+    .forEach(l => l.classList.remove('active'));
+  if (map[name])
+    document.getElementById(map[name])
+      .classList.add('active');
+  if (navMap[name])
+    document.getElementById(navMap[name])
+      .classList.add('active');
+  if (name === 'settings') buildCheckboxes();
+  window.scrollTo(0,0);
+}
+
+// ============================================
+// FILE UPLOAD — CONTRACT
+// ============================================
+function onFile(input) {
+  pdfFile = input.files[0];
+  if (!pdfFile) return;
+  const zone = document.getElementById('uploadZone');
+  zone.classList.add('has-file');
+  document.getElementById('uploadTitle')
+    .textContent = 'File Ready';
+  document.getElementById('uploadSub')
+    .textContent = pdfFile.name;
+  checkReady();
+}
+
+function checkReady() {
+  document.getElementById('extractBtn')
+    .disabled = !pdfFile;
+}
+
+// ============================================
+// FILE UPLOAD — COMMITMENT
+// ============================================
+function onCommitFile(input) {
+  commitFile = input.files[0];
+  if (!commitFile) return;
+  const zone = document.getElementById('commitZone');
+  zone.classList.add('has-file');
+  document.getElementById('commitTitle')
+    .textContent = 'File Ready';
+  document.getElementById('commitSub')
+    .textContent = commitFile.name;
+  document.getElementById('commitBtn')
+    .disabled = false;
+}
+
+// ============================================
+// EXTRACT CONTRACT
+// ============================================
+async function doExtract() {
+  if (!pdfFile || !currentUser) return;
+
+  const fileNo = document.getElementById('fileNo')
+    .value.trim() || 'NA';
+
+  document.getElementById('extractBtn').disabled  = true;
+  document.getElementById('statusBar').style.display  = 'flex';
+  document.getElementById('errBar').style.display     = 'none';
+  document.getElementById('resultWrap').style.display = 'none';
+  document.getElementById('dlBtn').style.display      = 'none';
+  document.getElementById('excelBar').style.display   = 'none';
+
+  try {
+    const b64 = await toBase64(pdfFile);
+    const res = await fetch(BACKEND, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
+        action    : 'extract',
+        clientName: currentUser.name,
+        password  : currentUser.pw,
+        fileNo,
+        pdfBase64 : b64,
+        fileName  : pdfFile.name
+      })
+    });
+    const d = await res.json();
+    document.getElementById('statusBar')
+      .style.display = 'none';
+
+    if (d.error) {
+      document.getElementById('errBar')
+        .textContent = d.error;
+      document.getElementById('errBar')
+        .style.display = 'block';
+      document.getElementById('extractBtn')
+        .disabled = false;
+      return;
+    }
+
+    extractedText = d.result;
+    document.getElementById('resultBody')
+      .textContent = extractedText;
+    document.getElementById('resultWrap')
+      .style.display = 'block';
+    document.getElementById('dlBtn')
+      .style.display = 'block';
+    document.getElementById('extractBtn')
+      .disabled = false;
+
+    // Show Excel status
+    const bar = document.getElementById('excelBar');
+    if (clientSettings.excelSheetId) {
+      if (d.excelStatus === 'success') {
+        bar.style.cssText =
+          'display:flex;margin-top:12px;' +
+          'padding:14px 20px;border-radius:6px;' +
+          'font-size:12px;letter-spacing:1px;' +
+          'align-items:center;gap:10px;' +
+          'background:rgba(76,175,125,.08);' +
+          'border:1px solid rgba(76,175,125,.3);' +
+          'color:#4caf7d;';
+        bar.innerHTML =
+          '✓ Row added to your sheet — ' +
+          '<a href="https://docs.google.com/spreadsheets/d/' +
+          clientSettings.excelSheetId +
+          '/edit" target="_blank" style="color:var(--gold);' +
+          'text-decoration:underline">Open Sheet</a>';
+      } else if (d.excelStatus) {
+        bar.style.cssText =
+          'display:flex;margin-top:12px;' +
+          'padding:14px 20px;border-radius:6px;' +
+          'font-size:12px;letter-spacing:1px;' +
+          'align-items:center;gap:10px;' +
+          'background:rgba(224,85,85,.08);' +
+          'border:1px solid rgba(224,85,85,.3);' +
+          'color:#e05555;';
+        bar.innerHTML =
+          '⚠ Could not write to your sheet. ' +
+          'Check Settings and sharing.';
+      }
+    }
+
+    // Reset for next contract
+    document.getElementById('fileNo').value       = '';
+    document.getElementById('pdfInput').value     = '';
+    document.getElementById('uploadZone')
+      .classList.remove('has-file');
+    document.getElementById('uploadTitle')
+      .textContent = 'Click to Upload';
+    document.getElementById('uploadSub')
+      .textContent = 'TREC contract PDF only';
+    pdfFile = null;
+    checkReady();
+
+    document.getElementById('resultWrap')
+      .scrollIntoView({behavior:'smooth',block:'start'});
+
+  } catch(e) {
+    document.getElementById('statusBar')
+      .style.display = 'none';
+    document.getElementById('errBar')
+      .textContent = 'Connection error. Try again.';
+    document.getElementById('errBar')
+      .style.display = 'block';
+    document.getElementById('extractBtn')
+      .disabled = false;
+  }
+}
+
+// ============================================
+// EXTRACT COMMITMENT + GENERATE XML
+// ============================================
+async function doCommitment() {
+  if (!commitFile || !currentUser) return;
+
+  const fileNo     = document.getElementById('fileNo')
+    .value.trim() || 'NA';
+  const signatory  = document.getElementById('commitSignatory')
+    .value.trim();
+
+  document.getElementById('commitBtn').disabled = true;
+  document.getElementById('commitStatus')
+    .style.display = 'flex';
+  document.getElementById('commitErr')
+    .style.display = 'none';
+  document.getElementById('commitWrap')
+    .style.display = 'none';
+  document.getElementById('xmlBtn')
+    .style.display = 'none';
+
+  try {
+    const b64 = await toBase64(commitFile);
+    const res = await fetch(BACKEND, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
+        action    : 'commitment',
+        clientName: currentUser.name,
+        password  : currentUser.pw,
+        fileNo,
+        signatory,
+        pdfBase64 : b64,
+        fileName  : commitFile.name
+      })
+    });
+    const d = await res.json();
+    document.getElementById('commitStatus')
+      .style.display = 'none';
+
+    if (d.error) {
+      document.getElementById('commitErr')
+        .textContent = d.error;
+      document.getElementById('commitErr')
+        .style.display = 'block';
+      document.getElementById('commitBtn')
+        .disabled = false;
+      return;
+    }
+
+    commitText = d.result;
+    xmlText    = d.xml;
+
+    document.getElementById('commitBody')
+      .textContent = commitText;
+    document.getElementById('commitWrap')
+      .style.display = 'block';
+    document.getElementById('xmlBtn')
+      .style.display = 'block';
+    document.getElementById('commitBtn')
+      .disabled = false;
+
+    // Reset for next commitment
+    document.getElementById('commitInput').value = '';
+    document.getElementById('commitZone')
+      .classList.remove('has-file');
+    document.getElementById('commitTitle')
+      .textContent = 'Click to Upload';
+    document.getElementById('commitSub')
+      .textContent = 'Title commitment PDF';
+    document.getElementById('commitBtn')
+      .disabled = true;
+    commitFile = null;
+
+    document.getElementById('commitWrap')
+      .scrollIntoView({behavior:'smooth',block:'start'});
+
+  } catch(e) {
+    document.getElementById('commitStatus')
+      .style.display = 'none';
+    document.getElementById('commitErr')
+      .textContent = 'Connection error. Try again.';
+    document.getElementById('commitErr')
+      .style.display = 'block';
+    document.getElementById('commitBtn')
+      .disabled = false;
+  }
+}
+
+// ============================================
+// DOWNLOAD XML
+// ============================================
+function dlXML() {
+  const fno  = document.getElementById('fileNo')
+    .value.trim() || 'commitment';
+  const blob = new Blob([xmlText],
+    {type:'application/xml'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'commitment-' + fno + '.xml';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function copyCommit() {
+  navigator.clipboard.writeText(commitText)
+    .then(() => {
+      const btn = document.getElementById('commitWrap')
+        .querySelector('.btn-copy');
+      btn.textContent = '✓ Copied';
+      setTimeout(() =>
+        btn.textContent = 'Copy All', 2000);
+    });
+}
+
+// ============================================
+// SETTINGS — LOAD FROM SERVER
+// ============================================
+async function loadSettings() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch(BACKEND, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
+        action    : 'getSettings',
+        clientName: currentUser.name,
+        password  : currentUser.pw
+      })
+    });
+    const d = await res.json();
+    if (!d.error) {
+      clientSettings.allFields      = d.allFields      || [];
+      clientSettings.selectedFields = d.selectedFields || [];
+      clientSettings.excelSheetId   = d.excelSheetId   || '';
+      if (clientSettings.excelSheetId) {
+        const el = document.getElementById(
+          'settingsSheetLink');
+        if (el) el.value =
+          'https://docs.google.com/spreadsheets/d/' +
+          clientSettings.excelSheetId + '/edit';
+      }
+    }
+  } catch(e) { /* silent fail */ }
+}
+
+// ============================================
+// SETTINGS — BUILD CHECKBOXES
+// ============================================
+function buildCheckboxes() {
+  const container = document.getElementById(
+    'fieldCheckboxes');
+  if (!container) return;
+  const fields   = clientSettings.allFields;
+  const selected = clientSettings.selectedFields;
+  container.innerHTML = '';
+  fields.forEach(field => {
+    const checked = selected.includes(field);
+    const wrap    = document.createElement('label');
+    wrap.style.cssText =
+      'display:flex;align-items:center;gap:10px;' +
+      'padding:12px 16px;' +
+      'background:var(--navy3);' +
+      'border:1px solid ' +
+        (checked
+          ? 'rgba(201,168,76,.4)'
+          : 'rgba(201,168,76,.1)') + ';' +
+      'border-radius:4px;cursor:pointer;' +
+      'transition:border-color .2s;';
+    wrap.innerHTML =
+      '<input type="checkbox"' +
+        (checked ? ' checked' : '') +
+        ' value="' + field + '"' +
+        ' style="width:16px;height:16px;' +
+          'accent-color:var(--gold);cursor:pointer"' +
+        ' onchange="onFieldCheck(this)">' +
+      '<span style="font-size:12px;' +
+        'color:var(--text);letter-spacing:.5px">' +
+        field +
+      '</span>';
+    container.appendChild(wrap);
+  });
+}
+
+function onFieldCheck(cb) {
+  const wrap  = cb.parentElement;
+  const field = cb.value;
+  if (cb.checked) {
+    wrap.style.borderColor = 'rgba(201,168,76,.4)';
+    if (!clientSettings.selectedFields.includes(field))
+      clientSettings.selectedFields.push(field);
+  } else {
+    wrap.style.borderColor = 'rgba(201,168,76,.1)';
+    clientSettings.selectedFields =
+      clientSettings.selectedFields
+        .filter(f => f !== field);
+  }
+}
+
+function selectAll() {
+  clientSettings.selectedFields =
+    [...clientSettings.allFields];
+  buildCheckboxes();
+}
+
+function clearAll() {
+  clientSettings.selectedFields = [];
+  buildCheckboxes();
+}
+
+// ============================================
+// SETTINGS — SAVE TO SERVER
+// ============================================
+async function saveSettings() {
+  const link   = document.getElementById(
+    'settingsSheetLink').value.trim();
+  const savedEl = document.getElementById('settingsSaved');
+  const errEl   = document.getElementById('settingsErr');
+  savedEl.style.display = 'none';
+  errEl.style.display   = 'none';
+
+  try {
+    const res = await fetch(BACKEND, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
+        action        : 'saveSettings',
+        clientName    : currentUser.name,
+        password      : currentUser.pw,
+        selectedFields: clientSettings.selectedFields,
+        excelLink     : link
+      })
+    });
+    const d = await res.json();
+    if (d.error) {
+      errEl.textContent   = d.error;
+      errEl.style.display = 'block';
+      return;
+    }
+    savedEl.style.display = 'block';
+    setTimeout(() =>
+      savedEl.style.display = 'none', 3000);
+    const m = link.match(
+      /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (m) clientSettings.excelSheetId = m[1];
+  } catch(e) {
+    errEl.textContent   = 'Connection error. Try again.';
+    errEl.style.display = 'block';
+  }
+}
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+function toBase64(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+function copyResult() {
+  navigator.clipboard.writeText(extractedText)
+    .then(() => {
+      const btn = document.querySelector('.btn-copy');
+      btn.textContent = '✓ Copied';
+      setTimeout(() =>
+        btn.textContent = 'Copy All', 2000);
+    });
+}
+
+function dlResult() {
+  const fno  = document.getElementById('fileNo')
+    .value || 'contract';
+  const blob = new Blob([extractedText],
+    {type:'text/plain'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'xtract-' + fno + '.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function toggleFaq(item) {
+  item.classList.toggle('open');
+}
+
+function sendContact() {
+  const name  = document.getElementById('cName')
+    .value.trim();
+  const email = document.getElementById('cEmail')
+    .value.trim();
+  if (!name || !email) return;
+  document.getElementById('contactSent')
+    .style.display = 'block';
+  document.getElementById('cName').value    = '';
+  document.getElementById('cCompany').value = '';
+  document.getElementById('cEmail').value   = '';
+  document.getElementById('cMsg').value     = '';
+}
+
+</script>
+
+</body>
+</html>
