@@ -1603,7 +1603,14 @@ input[type=file]{display:none}
 // CONFIGURATION
 // Replace with your real Apps Script URL
 // ============================================
-const BACKEND = 'https://script.google.com/macros/s/AKfycbxC1rj5Hk2wQKVLJQ5Y0_Pde7-NDyqXi_78vfXiGTc4KMjQf4MChQjABap1x5VtpN9i5A/exec';
+const BACKEND = 'https://script.google.com/macros/s/AKfycbxDGyQBFESOtBvPGy4MAOC9xMZ_m9NxY-vZ0glZ1ekwmF5HUbDL-SMdG6axtQ9rXO2owQ/exec';
+
+// Wraps data as FormData to avoid CORS preflight on Apps Script
+function makeForm(data) {
+  const f = new FormData();
+  f.append('payload', JSON.stringify(data));
+  return f;
+}
 
 let currentUser    = null;
 let extractedText  = '';
@@ -1651,8 +1658,7 @@ async function doLogin() {
   try {
     const res = await fetch(BACKEND, {
       method : 'POST',
-      headers: {'Content-Type':'application/json'},
-      body   : JSON.stringify({
+      body   : makeForm({
         action: 'login',
         clientName: name,
         password  : pw
@@ -1802,8 +1808,7 @@ async function doExtract() {
     const b64 = await toBase64(pdfFile);
     const res = await fetch(BACKEND, {
       method : 'POST',
-      headers: {'Content-Type':'application/json'},
-      body   : JSON.stringify({
+      body   : makeForm({
         action    : 'extract',
         clientName: currentUser.name,
         password  : currentUser.pw,
@@ -1921,8 +1926,7 @@ async function doCommitment() {
     const b64 = await toBase64(commitFile);
     const res = await fetch(BACKEND, {
       method : 'POST',
-      headers: {'Content-Type':'application/json'},
-      body   : JSON.stringify({
+      body   : makeForm({
         action    : 'commitment',
         clientName: currentUser.name,
         password  : currentUser.pw,
@@ -2020,8 +2024,7 @@ async function loadSettings() {
   try {
     const res = await fetch(BACKEND, {
       method : 'POST',
-      headers: {'Content-Type':'application/json'},
-      body   : JSON.stringify({
+      body   : makeForm({
         action    : 'getSettings',
         clientName: currentUser.name,
         password  : currentUser.pw
@@ -2121,8 +2124,7 @@ async function saveSettings() {
   try {
     const res = await fetch(BACKEND, {
       method : 'POST',
-      headers: {'Content-Type':'application/json'},
-      body   : JSON.stringify({
+      body   : makeForm({
         action        : 'saveSettings',
         clientName    : currentUser.name,
         password      : currentUser.pw,
