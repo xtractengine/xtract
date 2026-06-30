@@ -1089,6 +1089,39 @@ input[type=file]{display:none}
         id="commitBody"></div>
     </div>
 
+
+    <!-- WORD TO PDF SECTION -->
+    <div class="tool-card" style="margin-top:24px" id="wordPdfCard">
+      <div class="card-section">Word to PDF Converter</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:20px;letter-spacing:.5px">
+        Upload a .doc or .docx file and download it instantly as a PDF.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Upload Word File</label>
+        <div class="upload-zone" id="wordZone"
+          onclick="document.getElementById('wordInput').click()"
+          style="padding:24px">
+          <div class="upload-ico" style="font-size:28px;margin-bottom:8px">📝</div>
+          <h4 id="wordTitle" style="font-size:13px;margin-bottom:4px">Click to Upload</h4>
+          <p id="wordSub" style="font-size:11px">.doc or .docx files only</p>
+        </div>
+        <input type="file" id="wordInput" accept=".doc,.docx" onchange="onWordFile(this)">
+      </div>
+
+      <button class="btn-extract" id="wordPdfBtn"
+        onclick="convertWordToPdf()"
+        style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-top:4px"
+        disabled>
+        Convert to PDF &amp; Download
+      </button>
+
+      <div class="status-bar" id="wordStatus" style="display:none">
+        <div class="spinner"></div>
+        <span>Converting — please wait...</span>
+      </div>
+      <div class="err-bar" id="wordErr" style="display:none"></div>
+    </div>
+
   </div>
 </div>
 
@@ -1984,14 +2017,22 @@ async function doCommitment() {
 // DOWNLOAD XML
 // ============================================
 function dlXML() {
-  const fno  = document.getElementById('fileNo')
-    .value.trim() || 'commitment';
-  const blob = new Blob([xmlText],
-    {type:'application/xml'});
+  // Pre-fill with existing fileNo if set
+  const existing = document.getElementById('fileNo').value.trim();
+  document.getElementById('xmlFileNo').value = existing;
+  const modal = document.getElementById('fileNoModal');
+  modal.style.display = 'flex';
+  document.getElementById('xmlFileNo').focus();
+}
+
+function confirmXmlDownload() {
+  const fno  = document.getElementById('xmlFileNo').value.trim() || 'commitment';
+  document.getElementById('fileNoModal').style.display = 'none';
+  const blob = new Blob([xmlText], {type:'application/xml'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = 'commitment-' + fno + '.xml';
+  a.download = fno + '.xml';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -2186,7 +2227,117 @@ function sendContact() {
   document.getElementById('cMsg').value     = '';
 }
 
+
+
+// ============================================
+// WORD TO PDF CONVERTER
+// ============================================
+let wordFile = null;
+
+function onWordFile(input) {
+  wordFile = input.files[0];
+  if (!wordFile) return;
+  document.getElementById('wordTitle').textContent = wordFile.name;
+  document.getElementById('wordSub').textContent   =
+    (wordFile.size / 1024).toFixed(0) + ' KB';
+  document.getElementById('wordZone').classList.add('has-file');
+  document.getElementById('wordPdfBtn').disabled = false;
+}
+
+async function convertWordToPdf() {
+  if (!wordFile) return;
+  const btn = document.getElementById('wordPdfBtn');
+  btn.disabled = true;
+  document.getElementById('wordStatus').style.display = 'flex';
+  document.getElementById('wordErr').style.display    = 'none';
+
+  try {
+    const b64 = await toBase64(wordFile);
+    const d   = await callBackend({
+      action    : 'wordToPdf',
+      clientName: currentUser.name,
+      password  : currentUser.pw,
+      fileBase64: b64,
+      fileName  : wordFile.name
+    });
+    document.getElementById('wordStatus').style.display = 'none';
+
+    if (d.error) {
+      document.getElementById('wordErr').textContent    = d.error;
+      document.getElementById('wordErr').style.display  = 'block';
+      btn.disabled = false;
+      return;
+    }
+
+    // d.pdfBase64 comes back from Apps Script
+    const binary = atob(d.pdfBase64);
+    const bytes  = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++)
+      bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], {type:'application/pdf'});
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = wordFile.name.replace(/\.docx?$/i, '') + '.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // Reset
+    wordFile = null;
+    document.getElementById('wordInput').value  = '';
+    document.getElementById('wordTitle').textContent = 'Click to Upload';
+    document.getElementById('wordSub').textContent   = '.doc or .docx files only';
+    document.getElementById('wordZone').classList.remove('has-file');
+    btn.disabled = true;
+
+  } catch(e) {
+    document.getElementById('wordStatus').style.display = 'none';
+    document.getElementById('wordErr').textContent   = 'Conversion failed. Please try again.';
+    document.getElementById('wordErr').style.display = 'block';
+    btn.disabled = false;
+  }
+}
+
 </script>
+
+
+<!-- FILE NO MODAL -->
+<div id="fileNoModal" style="
+  display:none;position:fixed;inset:0;
+  background:rgba(6,13,31,.85);
+  z-index:999;
+  align-items:center;justify-content:center">
+  <div style="
+    background:var(--navy2);border:1px solid var(--border);
+    border-radius:8px;padding:36px;width:340px;
+    box-shadow:0 20px 60px rgba(0,0,0,.5)">
+    <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;
+      color:var(--gold);margin-bottom:20px;text-align:center">
+      Download XML
+    </div>
+    <label class="form-label">File No. (for filename)</label>
+    <input class="form-input" type="text" id="xmlFileNo"
+      placeholder="e.g. 2026-001"
+      style="margin-bottom:20px"
+      onkeydown="if(event.key==='Enter')confirmXmlDownload()">
+    <div style="display:flex;gap:12px">
+      <button onclick="document.getElementById('fileNoModal').style.display='none'"
+        style="flex:1;padding:12px;background:transparent;
+          border:1px solid var(--border);border-radius:4px;
+          color:var(--muted);cursor:pointer;font-size:11px;letter-spacing:2px;
+          font-family:Montserrat,sans-serif;text-transform:uppercase">
+        Cancel
+      </button>
+      <button onclick="confirmXmlDownload()"
+        style="flex:1;padding:12px;background:var(--gold);
+          border:none;border-radius:4px;
+          color:var(--navy);cursor:pointer;font-size:11px;letter-spacing:2px;
+          font-family:Montserrat,sans-serif;font-weight:600;text-transform:uppercase">
+        Download
+      </button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
