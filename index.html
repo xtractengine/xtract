@@ -159,7 +159,7 @@ nav{
    ============================================= */
 #loginPage{
   min-height:100vh;
-  display:flex;align-items:center;justify-content:center;
+  align-items:center;justify-content:center;
   padding:40px 20px;
 }
 
@@ -357,6 +357,12 @@ nav{
   background:var(--gold3);
 }
 
+.upload-zone.drag-over{
+  border-color:var(--gold2);
+  background:rgba(201,168,76,.18);
+  transform:scale(1.01);
+}
+
 .upload-ico{font-size:36px;margin-bottom:10px}
 
 .upload-zone h4{
@@ -530,16 +536,16 @@ input[type=file]{display:none}
   padding:24px;
   font-family:'Courier New',monospace;
   font-size:12px;line-height:2;
-  color:#c8c0a8;
+  color:#111111;
   max-height:600px;
   overflow-y:auto;
   white-space:pre-wrap;
-  background:var(--navy);
+  background:#ffffff;
 }
 
 .result-body::-webkit-scrollbar{width:4px}
-.result-body::-webkit-scrollbar-track{background:var(--navy)}
-.result-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.result-body::-webkit-scrollbar-track{background:#f0f0f0}
+.result-body::-webkit-scrollbar-thumb{background:#cccccc;border-radius:2px}
 
 /* Excel link bar */
 .excel-link-bar{
@@ -2297,6 +2303,77 @@ async function convertWordToPdf() {
     btn.disabled = false;
   }
 }
+
+
+// ============================================
+// DRAG AND DROP — ALL UPLOAD ZONES
+// ============================================
+function setupDragDrop(zoneId, accept, handler) {
+  const zone = document.getElementById(zoneId);
+  if (!zone) return;
+
+  zone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    zone.classList.add('drag-over');
+  });
+
+  zone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    zone.classList.remove('drag-over');
+  });
+
+  zone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (!accept.includes(ext)) {
+      alert('Wrong file type. Accepted: ' + accept.join(', '));
+      return;
+    }
+    handler(file);
+  });
+}
+
+function handleDroppedPdf(file) {
+  pdfFile = file;
+  document.getElementById('uploadTitle').textContent = file.name;
+  document.getElementById('uploadSub').textContent   =
+    (file.size / 1024).toFixed(0) + ' KB';
+  document.getElementById('uploadZone').classList.add('has-file');
+  document.getElementById('uploadFname').textContent = '';
+  document.getElementById('extractBtn').disabled =
+    !currentUser;
+}
+
+function handleDroppedCommit(file) {
+  commitFile = file;
+  document.getElementById('commitTitle').textContent = file.name;
+  document.getElementById('commitSub').textContent   =
+    (file.size / 1024).toFixed(0) + ' KB';
+  document.getElementById('commitZone').classList.add('has-file');
+  document.getElementById('commitBtn').disabled = false;
+}
+
+function handleDroppedWord(file) {
+  wordFile = file;
+  document.getElementById('wordTitle').textContent = file.name;
+  document.getElementById('wordSub').textContent   =
+    (file.size / 1024).toFixed(0) + ' KB';
+  document.getElementById('wordZone').classList.add('has-file');
+  document.getElementById('wordPdfBtn').disabled = false;
+}
+
+// Wire up all zones after DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  setupDragDrop('uploadZone', ['pdf'], handleDroppedPdf);
+  setupDragDrop('commitZone', ['pdf'], handleDroppedCommit);
+  setupDragDrop('wordZone',   ['doc','docx'], handleDroppedWord);
+});
 
 </script>
 
