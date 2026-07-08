@@ -159,7 +159,7 @@ nav{
    ============================================= */
 #loginPage{
   min-height:100vh;
-  align-items:center;justify-content:center;
+  display:flex;align-items:center;justify-content:center;
   padding:40px 20px;
 }
 
@@ -357,12 +357,6 @@ nav{
   background:var(--gold3);
 }
 
-.upload-zone.drag-over{
-  border-color:var(--gold2);
-  background:rgba(201,168,76,.18);
-  transform:scale(1.01);
-}
-
 .upload-ico{font-size:36px;margin-bottom:10px}
 
 .upload-zone h4{
@@ -536,16 +530,16 @@ input[type=file]{display:none}
   padding:24px;
   font-family:'Courier New',monospace;
   font-size:12px;line-height:2;
-  color:#111111;
+  color:#c8c0a8;
   max-height:600px;
   overflow-y:auto;
   white-space:pre-wrap;
-  background:#ffffff;
+  background:var(--navy);
 }
 
 .result-body::-webkit-scrollbar{width:4px}
-.result-body::-webkit-scrollbar-track{background:#f0f0f0}
-.result-body::-webkit-scrollbar-thumb{background:#cccccc;border-radius:2px}
+.result-body::-webkit-scrollbar-track{background:var(--navy)}
+.result-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
 /* Excel link bar */
 .excel-link-bar{
@@ -818,6 +812,2077 @@ input[type=file]{display:none}
   .btn-dl{width:100%}
 }
 </style>
+  <!-- Universal to PDF converter libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Word/PDF converter: client-side libraries (free, open source) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js">
+// ============================================
+// PDF TO WORD — 100% CLIENT SIDE
+// Uses PDF.js (extract text) + docx.js (build .docx)
+// Nothing sent to server. Completely free.
+// ============================================
+var pwFiles = [];
+
+// Set PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function pwDragOver(e) {
+  e.preventDefault();
+  document.getElementById('pwDropZone').style.borderColor = 'var(--gold)';
+  document.getElementById('pwDropZone').style.background  = 'var(--gold3)';
+}
+function pwDragLeave(e) {
+  document.getElementById('pwDropZone').style.borderColor = 'rgba(201,168,76,.3)';
+  document.getElementById('pwDropZone').style.background  = '';
+}
+function pwDrop(e) {
+  e.preventDefault();
+  pwDragLeave(e);
+  var files = Array.from(e.dataTransfer.files).filter(function(f) {
+    return f.name.match(/\.pdf$/i);
+  });
+  if (files.length) pwAddFiles(files);
+}
+function pwFilesSelected(fileList) {
+  pwAddFiles(Array.from(fileList));
+  document.getElementById('pwInput').value = '';
+}
+function pwAddFiles(files) {
+  files.forEach(function(f) {
+    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+      pwFiles.push(f);
+    }
+  });
+  pwRenderList();
+}
+function pwRenderList() {
+  var list = document.getElementById('pwFileList');
+  if (!pwFiles.length) { list.style.display = 'none'; return; }
+  list.style.display = 'block';
+  list.innerHTML = pwFiles.map(function(f, i) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+           'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+           '<span style="font-size:12px;color:var(--white)">📋 ' + f.name + '</span>' +
+           '<span style="display:flex;align-items:center;gap:12px">' +
+           '<span style="font-size:11px;color:var(--muted)">' +
+           (f.size/1024).toFixed(0) + ' KB</span>' +
+           '<span id="pwStatus_' + i + '" style="font-size:11px;color:var(--muted)">Pending</span>' +
+           '<button onclick="pwRemove(' + i + ')" style="background:none;border:none;' +
+           'color:var(--muted);cursor:pointer;font-size:14px;padding:0">✕</button>' +
+           '</span></div>';
+  }).join('');
+  document.getElementById('pwConvertBtn').disabled = false;
+}
+function pwRemove(i) {
+  pwFiles.splice(i, 1);
+  pwRenderList();
+  if (!pwFiles.length) document.getElementById('pwConvertBtn').disabled = true;
+}
+function pwClearAll() {
+  pwFiles = [];
+  pwRenderList();
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'none';
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwConvertBtn').disabled    = true;
+}
+
+async function pwConvertAll() {
+  if (!pwFiles.length) return;
+
+  // Ensure PDF.js worker is set
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  var btn = document.getElementById('pwConvertBtn');
+  btn.disabled = true;
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'block';
+
+  var results = [];
+  for (var i = 0; i < pwFiles.length; i++) {
+    var f = pwFiles[i];
+    var statusEl = document.getElementById('pwStatus_' + i);
+    if (statusEl) { statusEl.textContent = 'Converting...'; statusEl.style.color = 'var(--gold)'; }
+
+    document.getElementById('pwProgressLabel').textContent =
+      'Converting ' + (i+1) + ' of ' + pwFiles.length + ': ' + f.name;
+    document.getElementById('pwProgressBar').style.width =
+      Math.round((i / pwFiles.length) * 100) + '%';
+
+    try {
+      var docxBlob = await pwConvertOne(f);
+      var url      = URL.createObjectURL(docxBlob);
+      var docName  = f.name.replace(/\.pdf$/i, '') + '.docx';
+      results.push({ url: url, name: docName, ok: true });
+      if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
+
+      // Auto-download
+      var a = document.createElement('a');
+      a.href     = url;
+      a.download = docName;
+      a.click();
+    } catch(err) {
+      results.push({ name: f.name, ok: false, err: err.message });
+      if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
+    }
+  }
+
+  document.getElementById('pwProgressBar').style.width = '100%';
+  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+
+  var resDiv = document.getElementById('pwResults');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML =
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
+    results.map(function(r) {
+      if (r.ok) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+               'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+               '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
+               '<a href="' + r.url + '" download="' + r.name + '" ' +
+               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
+               'Download again</a></div>';
+      } else {
+        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+               '❌ ' + r.name + ' — ' + r.err + '</div>';
+      }
+    }).join('');
+
+  btn.disabled = false;
+}
+
+async function pwConvertOne(file) {
+  // Step 1: Read PDF as ArrayBuffer
+  var arrayBuf = await new Promise(function(res, rej) {
+    var reader = new FileReader();
+    reader.onload  = function(e) { res(e.target.result); };
+    reader.onerror = function()  { rej(new Error('File read failed')); };
+    reader.readAsArrayBuffer(file);
+  });
+
+  // Step 2: PDF.js — extract text from all pages
+  var pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+  var paragraphs = [];
+
+  for (var p = 1; p <= pdfDoc.numPages; p++) {
+    var page    = await pdfDoc.getPage(p);
+    var txtContent = await page.getTextContent();
+
+    // Group items into lines by Y position
+    var lines   = {};
+    txtContent.items.forEach(function(item) {
+      var y = Math.round(item.transform[5]);
+      if (!lines[y]) lines[y] = [];
+      lines[y].push(item.str);
+    });
+
+    // Sort lines top-to-bottom (descending Y in PDF coords)
+    var sortedYs = Object.keys(lines).map(Number).sort(function(a,b){ return b - a; });
+    sortedYs.forEach(function(y) {
+      var lineText = lines[y].join(' ').trim();
+      if (lineText) paragraphs.push(lineText);
+    });
+
+    // Add page break between pages
+    if (p < pdfDoc.numPages) paragraphs.push('');
+  }
+
+  // Step 3: docx.js — build .docx from extracted text
+  var { Document, Paragraph, TextRun, PageBreak, HeadingLevel } = docx;
+
+  var docParagraphs = paragraphs.map(function(text) {
+    if (text === '') {
+      // Empty = page break or spacing
+      return new Paragraph({ children: [new TextRun('')], spacing: { after: 200 } });
+    }
+    return new Paragraph({
+      children: [new TextRun({ text: text, size: 24, font: 'Arial' })],
+      spacing : { after: 120 }
+    });
+  });
+
+  var document = new Document({
+    sections: [{
+      properties: {},
+      children  : docParagraphs
+    }]
+  });
+
+  // Step 4: Pack to blob
+  var docxBlob = await docx.Packer.toBlob(document);
+  return docxBlob;
+}
+
+</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.umd.min.js">
+// ============================================
+// PDF TO WORD — 100% CLIENT SIDE
+// Uses PDF.js (extract text) + docx.js (build .docx)
+// Nothing sent to server. Completely free.
+// ============================================
+var pwFiles = [];
+
+// Set PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function pwDragOver(e) {
+  e.preventDefault();
+  document.getElementById('pwDropZone').style.borderColor = 'var(--gold)';
+  document.getElementById('pwDropZone').style.background  = 'var(--gold3)';
+}
+function pwDragLeave(e) {
+  document.getElementById('pwDropZone').style.borderColor = 'rgba(201,168,76,.3)';
+  document.getElementById('pwDropZone').style.background  = '';
+}
+function pwDrop(e) {
+  e.preventDefault();
+  pwDragLeave(e);
+  var files = Array.from(e.dataTransfer.files).filter(function(f) {
+    return f.name.match(/\.pdf$/i);
+  });
+  if (files.length) pwAddFiles(files);
+}
+function pwFilesSelected(fileList) {
+  pwAddFiles(Array.from(fileList));
+  document.getElementById('pwInput').value = '';
+}
+function pwAddFiles(files) {
+  files.forEach(function(f) {
+    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+      pwFiles.push(f);
+    }
+  });
+  pwRenderList();
+}
+function pwRenderList() {
+  var list = document.getElementById('pwFileList');
+  if (!pwFiles.length) { list.style.display = 'none'; return; }
+  list.style.display = 'block';
+  list.innerHTML = pwFiles.map(function(f, i) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+           'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+           '<span style="font-size:12px;color:var(--white)">📋 ' + f.name + '</span>' +
+           '<span style="display:flex;align-items:center;gap:12px">' +
+           '<span style="font-size:11px;color:var(--muted)">' +
+           (f.size/1024).toFixed(0) + ' KB</span>' +
+           '<span id="pwStatus_' + i + '" style="font-size:11px;color:var(--muted)">Pending</span>' +
+           '<button onclick="pwRemove(' + i + ')" style="background:none;border:none;' +
+           'color:var(--muted);cursor:pointer;font-size:14px;padding:0">✕</button>' +
+           '</span></div>';
+  }).join('');
+  document.getElementById('pwConvertBtn').disabled = false;
+}
+function pwRemove(i) {
+  pwFiles.splice(i, 1);
+  pwRenderList();
+  if (!pwFiles.length) document.getElementById('pwConvertBtn').disabled = true;
+}
+function pwClearAll() {
+  pwFiles = [];
+  pwRenderList();
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'none';
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwConvertBtn').disabled    = true;
+}
+
+async function pwConvertAll() {
+  if (!pwFiles.length) return;
+
+  // Ensure PDF.js worker is set
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  var btn = document.getElementById('pwConvertBtn');
+  btn.disabled = true;
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'block';
+
+  var results = [];
+  for (var i = 0; i < pwFiles.length; i++) {
+    var f = pwFiles[i];
+    var statusEl = document.getElementById('pwStatus_' + i);
+    if (statusEl) { statusEl.textContent = 'Converting...'; statusEl.style.color = 'var(--gold)'; }
+
+    document.getElementById('pwProgressLabel').textContent =
+      'Converting ' + (i+1) + ' of ' + pwFiles.length + ': ' + f.name;
+    document.getElementById('pwProgressBar').style.width =
+      Math.round((i / pwFiles.length) * 100) + '%';
+
+    try {
+      var docxBlob = await pwConvertOne(f);
+      var url      = URL.createObjectURL(docxBlob);
+      var docName  = f.name.replace(/\.pdf$/i, '') + '.docx';
+      results.push({ url: url, name: docName, ok: true });
+      if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
+
+      // Auto-download
+      var a = document.createElement('a');
+      a.href     = url;
+      a.download = docName;
+      a.click();
+    } catch(err) {
+      results.push({ name: f.name, ok: false, err: err.message });
+      if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
+    }
+  }
+
+  document.getElementById('pwProgressBar').style.width = '100%';
+  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+
+  var resDiv = document.getElementById('pwResults');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML =
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
+    results.map(function(r) {
+      if (r.ok) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+               'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+               '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
+               '<a href="' + r.url + '" download="' + r.name + '" ' +
+               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
+               'Download again</a></div>';
+      } else {
+        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+               '❌ ' + r.name + ' — ' + r.err + '</div>';
+      }
+    }).join('');
+
+  btn.disabled = false;
+}
+
+async function pwConvertOne(file) {
+  // Step 1: Read PDF as ArrayBuffer
+  var arrayBuf = await new Promise(function(res, rej) {
+    var reader = new FileReader();
+    reader.onload  = function(e) { res(e.target.result); };
+    reader.onerror = function()  { rej(new Error('File read failed')); };
+    reader.readAsArrayBuffer(file);
+  });
+
+  // Step 2: PDF.js — extract text from all pages
+  var pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+  var paragraphs = [];
+
+  for (var p = 1; p <= pdfDoc.numPages; p++) {
+    var page    = await pdfDoc.getPage(p);
+    var txtContent = await page.getTextContent();
+
+    // Group items into lines by Y position
+    var lines   = {};
+    txtContent.items.forEach(function(item) {
+      var y = Math.round(item.transform[5]);
+      if (!lines[y]) lines[y] = [];
+      lines[y].push(item.str);
+    });
+
+    // Sort lines top-to-bottom (descending Y in PDF coords)
+    var sortedYs = Object.keys(lines).map(Number).sort(function(a,b){ return b - a; });
+    sortedYs.forEach(function(y) {
+      var lineText = lines[y].join(' ').trim();
+      if (lineText) paragraphs.push(lineText);
+    });
+
+    // Add page break between pages
+    if (p < pdfDoc.numPages) paragraphs.push('');
+  }
+
+  // Step 3: docx.js — build .docx from extracted text
+  var { Document, Paragraph, TextRun, PageBreak, HeadingLevel } = docx;
+
+  var docParagraphs = paragraphs.map(function(text) {
+    if (text === '') {
+      // Empty = page break or spacing
+      return new Paragraph({ children: [new TextRun('')], spacing: { after: 200 } });
+    }
+    return new Paragraph({
+      children: [new TextRun({ text: text, size: 24, font: 'Arial' })],
+      spacing : { after: 120 }
+    });
+  });
+
+  var document = new Document({
+    sections: [{
+      properties: {},
+      children  : docParagraphs
+    }]
+  });
+
+  // Step 4: Pack to blob
+  var docxBlob = await docx.Packer.toBlob(document);
+  return docxBlob;
+}
+
+</script>
+    <!-- Word to PDF: client-side libraries (free, open source) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js">
+// ============================================
+// UNIVERSAL → PDF CONVERTER — 100% CLIENT SIDE
+// Supports: docx, xlsx, txt, csv, jpg, png,
+//           gif, bmp, webp
+// Limits: 10 files, 20MB each, 50MB total
+// Libraries: mammoth, jsPDF, html2canvas, xlsx
+// Nothing sent to server. Completely free.
+// ============================================
+var wpFiles = [];
+var WP_MAX_FILES   = 10;
+var WP_MAX_PER_MB  = 20;
+var WP_MAX_TOTAL_MB= 50;
+
+var WP_ICONS = {
+  docx:'📝', doc:'📝',
+  xlsx:'📊', xls:'📊',
+  csv :'📊', txt :'📄',
+  jpg :'🖼️', jpeg:'🖼️',
+  png :'🖼️', gif :'🖼️',
+  bmp :'🖼️', webp:'🖼️'
+};
+
+function wpExt(name) {
+  return name.split('.').pop().toLowerCase();
+}
+function wpIcon(name) {
+  return WP_ICONS[wpExt(name)] || '📄';
+}
+
+function wpDragOver(e) {
+  e.preventDefault();
+  document.getElementById('wpDropZone').style.borderColor = 'var(--gold)';
+  document.getElementById('wpDropZone').style.background  = 'rgba(201,168,76,.08)';
+}
+function wpDragLeave(e) {
+  document.getElementById('wpDropZone').style.borderColor = 'rgba(201,168,76,.3)';
+  document.getElementById('wpDropZone').style.background  = '';
+}
+function wpDrop(e) {
+  e.preventDefault();
+  wpDragLeave(e);
+  wpAddFiles(Array.from(e.dataTransfer.files));
+}
+function wpFilesSelected(fileList) {
+  wpAddFiles(Array.from(fileList));
+  document.getElementById('wpInput').value = '';
+}
+
+function wpAddFiles(files) {
+  var warn = document.getElementById('wpLimitWarn');
+  warn.textContent = '';
+
+  files.forEach(function(f) {
+    var ext = wpExt(f.name);
+    var allowed = ['docx','doc','xlsx','xls','csv','txt',
+                   'jpg','jpeg','png','gif','bmp','webp'];
+    if (!allowed.includes(ext)) {
+      warn.textContent = f.name + ' — unsupported format, skipped';
+      return;
+    }
+    if (wpFiles.length >= WP_MAX_FILES) {
+      warn.textContent = 'Max ' + WP_MAX_FILES + ' files allowed';
+      return;
+    }
+    var perMB = f.size / 1024 / 1024;
+    if (perMB > WP_MAX_PER_MB) {
+      warn.textContent = f.name + ' exceeds ' + WP_MAX_PER_MB + 'MB limit, skipped';
+      return;
+    }
+    var totalMB = wpFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
+    if (totalMB + perMB > WP_MAX_TOTAL_MB) {
+      warn.textContent = 'Total size would exceed ' + WP_MAX_TOTAL_MB + 'MB, skipped';
+      return;
+    }
+    if (!wpFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
+      wpFiles.push(f);
+    }
+  });
+  wpRenderList();
+}
+
+function wpUpdateLimitBar() {
+  var totalMB = wpFiles.reduce(function(s,f){ return s + f.size; }, 0) / 1024 / 1024;
+  document.getElementById('wpLimitLabel').textContent =
+    wpFiles.length + ' / ' + WP_MAX_FILES + ' files  ·  ' +
+    totalMB.toFixed(1) + ' MB / ' + WP_MAX_TOTAL_MB + ' MB';
+}
+
+function wpRenderList() {
+  var list = document.getElementById('wpFileList');
+  if (!wpFiles.length) {
+    list.style.display = 'none';
+    document.getElementById('wpConvertBtn').disabled = true;
+    wpUpdateLimitBar();
+    return;
+  }
+  list.style.display = 'block';
+  list.innerHTML = wpFiles.map(function(f, i) {
+    var ext = wpExt(f.name).toUpperCase();
+    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+           'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+           '<div style="display:flex;align-items:center;gap:10px">' +
+           '<span style="font-size:18px">' + wpIcon(f.name) + '</span>' +
+           '<div>' +
+           '<div style="font-size:12px;color:var(--white)">' + f.name + '</div>' +
+           '<div style="font-size:10px;color:var(--muted)">' + ext + ' · ' +
+           (f.size/1024).toFixed(0) + ' KB</div></div></div>' +
+           '<div style="display:flex;align-items:center;gap:12px">' +
+           '<span id="wpStatus_' + i + '" style="font-size:11px;color:var(--muted)">Pending</span>' +
+           '<button onclick="wpRemove(' + i + ')" style="background:none;border:none;' +
+           'color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px">✕</button>' +
+           '</div></div>';
+  }).join('');
+  document.getElementById('wpConvertBtn').disabled = false;
+  wpUpdateLimitBar();
+}
+
+function wpRemove(i) {
+  wpFiles.splice(i, 1);
+  wpRenderList();
+}
+
+function wpClearAll() {
+  wpFiles = [];
+  wpRenderList();
+  document.getElementById('wpResults').style.display  = 'none';
+  document.getElementById('wpProgress').style.display = 'none';
+  document.getElementById('wpErr').style.display      = 'none';
+  document.getElementById('wpLimitWarn').textContent  = '';
+}
+
+async function wpConvertAll() {
+  if (!wpFiles.length) return;
+  var btn = document.getElementById('wpConvertBtn');
+  btn.disabled = true;
+  document.getElementById('wpErr').style.display      = 'none';
+  document.getElementById('wpResults').style.display  = 'none';
+  document.getElementById('wpProgress').style.display = 'block';
+
+  var results = [];
+  for (var i = 0; i < wpFiles.length; i++) {
+    var f = wpFiles[i];
+    var statusEl = document.getElementById('wpStatus_' + i);
+    if (statusEl) { statusEl.textContent = 'Converting...'; statusEl.style.color = 'var(--gold)'; }
+
+    var pct = Math.round((i / wpFiles.length) * 100);
+    document.getElementById('wpProgressBar').style.width  = pct + '%';
+    document.getElementById('wpProgressLabel').textContent =
+      '(' + (i+1) + '/' + wpFiles.length + ') Converting: ' + f.name;
+
+    try {
+      var pdfBlob = await wpConvertOne(f);
+      var url     = URL.createObjectURL(pdfBlob);
+      var pdfName = f.name.replace(/\.[^.]+$/, '') + '.pdf';
+      results.push({ url:url, name:pdfName, ok:true });
+      if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
+      var a = document.createElement('a');
+      a.href = url; a.download = pdfName; a.click();
+    } catch(err) {
+      results.push({ name:f.name, ok:false, err:err.message });
+      if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
+    }
+  }
+
+  document.getElementById('wpProgressBar').style.width   = '100%';
+  document.getElementById('wpProgressLabel').textContent = '✅ All done! ' + results.filter(function(r){return r.ok;}).length + ' of ' + results.length + ' converted.';
+
+  var resDiv = document.getElementById('wpResults');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML =
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">DOWNLOADS</div>' +
+    results.map(function(r) {
+      if (r.ok) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+               'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+               '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
+               '<a href="' + r.url + '" download="' + r.name + '" ' +
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ Download</a></div>';
+      }
+      return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+             'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+             '❌ ' + r.name + ' — ' + r.err + '</div>';
+    }).join('');
+
+  btn.disabled = false;
+}
+
+async function wpConvertOne(file) {
+  var ext = wpExt(file.name);
+
+  // --- IMAGES → PDF ---
+  if (['jpg','jpeg','png','gif','bmp','webp'].includes(ext)) {
+    return await wpImageToPdf(file);
+  }
+
+  // --- TXT / CSV → PDF ---
+  if (ext === 'txt' || ext === 'csv') {
+    return await wpTextToPdf(file);
+  }
+
+  // --- XLSX / XLS → PDF ---
+  if (ext === 'xlsx' || ext === 'xls') {
+    return await wpExcelToPdf(file);
+  }
+
+  // --- DOCX / DOC → PDF ---
+  if (ext === 'docx' || ext === 'doc') {
+    return await wpWordToPdf(file);
+  }
+
+  throw new Error('Unsupported format: ' + ext);
+}
+
+// Image → PDF
+async function wpImageToPdf(file) {
+  var dataUrl = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsDataURL(file);
+  });
+  var img = await new Promise(function(res, rej) {
+    var i = new Image();
+    i.onload  = function() { res(i); };
+    i.onerror = function() { rej(new Error('Image load failed')); };
+    i.src = dataUrl;
+  });
+  var { jsPDF } = window.jspdf;
+  var pdf   = new jsPDF({ orientation: img.width > img.height ? 'l' : 'p', unit:'mm', format:'a4' });
+  var pw    = pdf.internal.pageSize.getWidth();
+  var ph    = pdf.internal.pageSize.getHeight();
+  var ratio = Math.min(pw / img.width, ph / img.height);
+  var iw    = img.width  * ratio;
+  var ih    = img.height * ratio;
+  var x     = (pw - iw) / 2;
+  var y     = (ph - ih) / 2;
+  var fmt   = file.name.match(/\.png$/i) ? 'PNG' : 'JPEG';
+  pdf.addImage(dataUrl, fmt, x, y, iw, ih);
+  return pdf.output('blob');
+}
+
+// Text / CSV → PDF
+async function wpTextToPdf(file) {
+  var text = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsText(file);
+  });
+  var { jsPDF } = window.jspdf;
+  var pdf    = new jsPDF({ unit:'mm', format:'a4' });
+  var margin = 15;
+  var pw     = pdf.internal.pageSize.getWidth()  - margin * 2;
+  var ph     = pdf.internal.pageSize.getHeight() - margin * 2;
+  var lh     = 6;
+  pdf.setFont('helvetica');
+  pdf.setFontSize(10);
+  var lines  = pdf.splitTextToSize(text, pw);
+  var y      = margin;
+  lines.forEach(function(line) {
+    if (y + lh > margin + ph) { pdf.addPage(); y = margin; }
+    pdf.text(line, margin, y);
+    y += lh;
+  });
+  return pdf.output('blob');
+}
+
+// Excel → PDF
+async function wpExcelToPdf(file) {
+  var arrayBuf = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsArrayBuffer(file);
+  });
+  var wb   = XLSX.read(arrayBuf, { type:'array' });
+  var html = '';
+  wb.SheetNames.forEach(function(name) {
+    html += '<h3 style="font-family:Arial;font-size:13px;margin:16px 0 8px">' + name + '</h3>';
+    html += XLSX.utils.sheet_to_html(wb.Sheets[name], { editable: false });
+  });
+
+  var container = document.createElement('div');
+  container.style.cssText =
+    'position:fixed;left:-9999px;top:0;width:1000px;background:#fff;' +
+    'color:#000;font-family:Arial,sans-serif;font-size:11px;padding:30px;box-sizing:border-box';
+  container.innerHTML = '<style>table{border-collapse:collapse;width:100%;margin-bottom:16px}' +
+    'td,th{border:1px solid #ccc;padding:4px 8px;font-size:10px}' +
+    'th{background:#f5f5f5;font-weight:bold}</style>' + html;
+  document.body.appendChild(container);
+
+  var canvas = await html2canvas(container, { scale:1.2, logging:false, background:'#ffffff' });
+  document.body.removeChild(container);
+
+  return await wpCanvasToPdf(canvas);
+}
+
+// Word → PDF
+async function wpWordToPdf(file) {
+  var arrayBuf = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsArrayBuffer(file);
+  });
+  var result    = await mammoth.convertToHtml({ arrayBuffer: arrayBuf });
+  var container = document.createElement('div');
+  container.style.cssText =
+    'position:fixed;left:-9999px;top:0;width:794px;background:#fff;' +
+    'color:#000;font-family:Arial,sans-serif;font-size:12px;line-height:1.6;' +
+    'padding:60px;box-sizing:border-box';
+  container.innerHTML = result.value;
+  document.body.appendChild(container);
+  var canvas = await html2canvas(container, { scale:1.5, logging:false, background:'#ffffff' });
+  document.body.removeChild(container);
+  return await wpCanvasToPdf(canvas);
+}
+
+// Canvas → PDF helper (handles multi-page)
+async function wpCanvasToPdf(canvas) {
+  var { jsPDF } = window.jspdf;
+  var pdf   = new jsPDF('p', 'mm', 'a4');
+  var pw    = pdf.internal.pageSize.getWidth();
+  var ph    = pdf.internal.pageSize.getHeight();
+  var imgW  = canvas.width;
+  var imgH  = canvas.height;
+  var scale = pw / (imgW * 0.264583);
+  var totalH= imgH * scale * 0.264583;
+  var pages = Math.ceil(totalH / ph);
+
+  for (var p = 0; p < pages; p++) {
+    if (p > 0) pdf.addPage();
+    var srcY   = p * (ph / scale / 0.264583);
+    var sliceH = Math.min(ph / scale / 0.264583, imgH - srcY);
+    var slice  = document.createElement('canvas');
+    slice.width  = imgW;
+    slice.height = Math.ceil(sliceH);
+    slice.getContext('2d').drawImage(canvas, 0, srcY, imgW, sliceH, 0, 0, imgW, sliceH);
+    pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, sliceH * scale * 0.264583);
+  }
+  return pdf.output('blob');
+}
+
+
+// ============================================
+// PDF TO WORD — 100% CLIENT SIDE
+// Uses PDF.js (extract text) + docx.js (build .docx)
+// Nothing sent to server. Completely free.
+// ============================================
+var pwFiles = [];
+
+// Set PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function pwDragOver(e) {
+  e.preventDefault();
+  document.getElementById('pwDropZone').style.borderColor = 'var(--gold)';
+  document.getElementById('pwDropZone').style.background  = 'var(--gold3)';
+}
+function pwDragLeave(e) {
+  document.getElementById('pwDropZone').style.borderColor = 'rgba(201,168,76,.3)';
+  document.getElementById('pwDropZone').style.background  = '';
+}
+function pwDrop(e) {
+  e.preventDefault();
+  pwDragLeave(e);
+  var files = Array.from(e.dataTransfer.files).filter(function(f) {
+    return f.name.match(/\.pdf$/i);
+  });
+  if (files.length) pwAddFiles(files);
+}
+function pwFilesSelected(fileList) {
+  pwAddFiles(Array.from(fileList));
+  document.getElementById('pwInput').value = '';
+}
+function pwAddFiles(files) {
+  files.forEach(function(f) {
+    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+      pwFiles.push(f);
+    }
+  });
+  pwRenderList();
+}
+function pwRenderList() {
+  var list = document.getElementById('pwFileList');
+  if (!pwFiles.length) { list.style.display = 'none'; return; }
+  list.style.display = 'block';
+  list.innerHTML = pwFiles.map(function(f, i) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+           'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+           '<span style="font-size:12px;color:var(--white)">📋 ' + f.name + '</span>' +
+           '<span style="display:flex;align-items:center;gap:12px">' +
+           '<span style="font-size:11px;color:var(--muted)">' +
+           (f.size/1024).toFixed(0) + ' KB</span>' +
+           '<span id="pwStatus_' + i + '" style="font-size:11px;color:var(--muted)">Pending</span>' +
+           '<button onclick="pwRemove(' + i + ')" style="background:none;border:none;' +
+           'color:var(--muted);cursor:pointer;font-size:14px;padding:0">✕</button>' +
+           '</span></div>';
+  }).join('');
+  document.getElementById('pwConvertBtn').disabled = false;
+}
+function pwRemove(i) {
+  pwFiles.splice(i, 1);
+  pwRenderList();
+  if (!pwFiles.length) document.getElementById('pwConvertBtn').disabled = true;
+}
+function pwClearAll() {
+  pwFiles = [];
+  pwRenderList();
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'none';
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwConvertBtn').disabled    = true;
+}
+
+async function pwConvertAll() {
+  if (!pwFiles.length) return;
+
+  // Ensure PDF.js worker is set
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  var btn = document.getElementById('pwConvertBtn');
+  btn.disabled = true;
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'block';
+
+  var results = [];
+  for (var i = 0; i < pwFiles.length; i++) {
+    var f = pwFiles[i];
+    var statusEl = document.getElementById('pwStatus_' + i);
+    if (statusEl) { statusEl.textContent = 'Converting...'; statusEl.style.color = 'var(--gold)'; }
+
+    document.getElementById('pwProgressLabel').textContent =
+      'Converting ' + (i+1) + ' of ' + pwFiles.length + ': ' + f.name;
+    document.getElementById('pwProgressBar').style.width =
+      Math.round((i / pwFiles.length) * 100) + '%';
+
+    try {
+      var docxBlob = await pwConvertOne(f);
+      var url      = URL.createObjectURL(docxBlob);
+      var docName  = f.name.replace(/\.pdf$/i, '') + '.docx';
+      results.push({ url: url, name: docName, ok: true });
+      if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
+
+      // Auto-download
+      var a = document.createElement('a');
+      a.href     = url;
+      a.download = docName;
+      a.click();
+    } catch(err) {
+      results.push({ name: f.name, ok: false, err: err.message });
+      if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
+    }
+  }
+
+  document.getElementById('pwProgressBar').style.width = '100%';
+  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+
+  var resDiv = document.getElementById('pwResults');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML =
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
+    results.map(function(r) {
+      if (r.ok) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+               'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+               '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
+               '<a href="' + r.url + '" download="' + r.name + '" ' +
+               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
+               'Download again</a></div>';
+      } else {
+        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+               '❌ ' + r.name + ' — ' + r.err + '</div>';
+      }
+    }).join('');
+
+  btn.disabled = false;
+}
+
+async function pwConvertOne(file) {
+  // Step 1: Read PDF as ArrayBuffer
+  var arrayBuf = await new Promise(function(res, rej) {
+    var reader = new FileReader();
+    reader.onload  = function(e) { res(e.target.result); };
+    reader.onerror = function()  { rej(new Error('File read failed')); };
+    reader.readAsArrayBuffer(file);
+  });
+
+  // Step 2: PDF.js — extract text from all pages
+  var pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+  var paragraphs = [];
+
+  for (var p = 1; p <= pdfDoc.numPages; p++) {
+    var page    = await pdfDoc.getPage(p);
+    var txtContent = await page.getTextContent();
+
+    // Group items into lines by Y position
+    var lines   = {};
+    txtContent.items.forEach(function(item) {
+      var y = Math.round(item.transform[5]);
+      if (!lines[y]) lines[y] = [];
+      lines[y].push(item.str);
+    });
+
+    // Sort lines top-to-bottom (descending Y in PDF coords)
+    var sortedYs = Object.keys(lines).map(Number).sort(function(a,b){ return b - a; });
+    sortedYs.forEach(function(y) {
+      var lineText = lines[y].join(' ').trim();
+      if (lineText) paragraphs.push(lineText);
+    });
+
+    // Add page break between pages
+    if (p < pdfDoc.numPages) paragraphs.push('');
+  }
+
+  // Step 3: docx.js — build .docx from extracted text
+  var { Document, Paragraph, TextRun, PageBreak, HeadingLevel } = docx;
+
+  var docParagraphs = paragraphs.map(function(text) {
+    if (text === '') {
+      // Empty = page break or spacing
+      return new Paragraph({ children: [new TextRun('')], spacing: { after: 200 } });
+    }
+    return new Paragraph({
+      children: [new TextRun({ text: text, size: 24, font: 'Arial' })],
+      spacing : { after: 120 }
+    });
+  });
+
+  var document = new Document({
+    sections: [{
+      properties: {},
+      children  : docParagraphs
+    }]
+  });
+
+  // Step 4: Pack to blob
+  var docxBlob = await docx.Packer.toBlob(document);
+  return docxBlob;
+}
+
+</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js">
+// ============================================
+// UNIVERSAL → PDF CONVERTER — 100% CLIENT SIDE
+// Supports: docx, xlsx, txt, csv, jpg, png,
+//           gif, bmp, webp
+// Limits: 10 files, 20MB each, 50MB total
+// Libraries: mammoth, jsPDF, html2canvas, xlsx
+// Nothing sent to server. Completely free.
+// ============================================
+var wpFiles = [];
+var WP_MAX_FILES   = 10;
+var WP_MAX_PER_MB  = 20;
+var WP_MAX_TOTAL_MB= 50;
+
+var WP_ICONS = {
+  docx:'📝', doc:'📝',
+  xlsx:'📊', xls:'📊',
+  csv :'📊', txt :'📄',
+  jpg :'🖼️', jpeg:'🖼️',
+  png :'🖼️', gif :'🖼️',
+  bmp :'🖼️', webp:'🖼️'
+};
+
+function wpExt(name) {
+  return name.split('.').pop().toLowerCase();
+}
+function wpIcon(name) {
+  return WP_ICONS[wpExt(name)] || '📄';
+}
+
+function wpDragOver(e) {
+  e.preventDefault();
+  document.getElementById('wpDropZone').style.borderColor = 'var(--gold)';
+  document.getElementById('wpDropZone').style.background  = 'rgba(201,168,76,.08)';
+}
+function wpDragLeave(e) {
+  document.getElementById('wpDropZone').style.borderColor = 'rgba(201,168,76,.3)';
+  document.getElementById('wpDropZone').style.background  = '';
+}
+function wpDrop(e) {
+  e.preventDefault();
+  wpDragLeave(e);
+  wpAddFiles(Array.from(e.dataTransfer.files));
+}
+function wpFilesSelected(fileList) {
+  wpAddFiles(Array.from(fileList));
+  document.getElementById('wpInput').value = '';
+}
+
+function wpAddFiles(files) {
+  var warn = document.getElementById('wpLimitWarn');
+  warn.textContent = '';
+
+  files.forEach(function(f) {
+    var ext = wpExt(f.name);
+    var allowed = ['docx','doc','xlsx','xls','csv','txt',
+                   'jpg','jpeg','png','gif','bmp','webp'];
+    if (!allowed.includes(ext)) {
+      warn.textContent = f.name + ' — unsupported format, skipped';
+      return;
+    }
+    if (wpFiles.length >= WP_MAX_FILES) {
+      warn.textContent = 'Max ' + WP_MAX_FILES + ' files allowed';
+      return;
+    }
+    var perMB = f.size / 1024 / 1024;
+    if (perMB > WP_MAX_PER_MB) {
+      warn.textContent = f.name + ' exceeds ' + WP_MAX_PER_MB + 'MB limit, skipped';
+      return;
+    }
+    var totalMB = wpFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
+    if (totalMB + perMB > WP_MAX_TOTAL_MB) {
+      warn.textContent = 'Total size would exceed ' + WP_MAX_TOTAL_MB + 'MB, skipped';
+      return;
+    }
+    if (!wpFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
+      wpFiles.push(f);
+    }
+  });
+  wpRenderList();
+}
+
+function wpUpdateLimitBar() {
+  var totalMB = wpFiles.reduce(function(s,f){ return s + f.size; }, 0) / 1024 / 1024;
+  document.getElementById('wpLimitLabel').textContent =
+    wpFiles.length + ' / ' + WP_MAX_FILES + ' files  ·  ' +
+    totalMB.toFixed(1) + ' MB / ' + WP_MAX_TOTAL_MB + ' MB';
+}
+
+function wpRenderList() {
+  var list = document.getElementById('wpFileList');
+  if (!wpFiles.length) {
+    list.style.display = 'none';
+    document.getElementById('wpConvertBtn').disabled = true;
+    wpUpdateLimitBar();
+    return;
+  }
+  list.style.display = 'block';
+  list.innerHTML = wpFiles.map(function(f, i) {
+    var ext = wpExt(f.name).toUpperCase();
+    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+           'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+           '<div style="display:flex;align-items:center;gap:10px">' +
+           '<span style="font-size:18px">' + wpIcon(f.name) + '</span>' +
+           '<div>' +
+           '<div style="font-size:12px;color:var(--white)">' + f.name + '</div>' +
+           '<div style="font-size:10px;color:var(--muted)">' + ext + ' · ' +
+           (f.size/1024).toFixed(0) + ' KB</div></div></div>' +
+           '<div style="display:flex;align-items:center;gap:12px">' +
+           '<span id="wpStatus_' + i + '" style="font-size:11px;color:var(--muted)">Pending</span>' +
+           '<button onclick="wpRemove(' + i + ')" style="background:none;border:none;' +
+           'color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px">✕</button>' +
+           '</div></div>';
+  }).join('');
+  document.getElementById('wpConvertBtn').disabled = false;
+  wpUpdateLimitBar();
+}
+
+function wpRemove(i) {
+  wpFiles.splice(i, 1);
+  wpRenderList();
+}
+
+function wpClearAll() {
+  wpFiles = [];
+  wpRenderList();
+  document.getElementById('wpResults').style.display  = 'none';
+  document.getElementById('wpProgress').style.display = 'none';
+  document.getElementById('wpErr').style.display      = 'none';
+  document.getElementById('wpLimitWarn').textContent  = '';
+}
+
+async function wpConvertAll() {
+  if (!wpFiles.length) return;
+  var btn = document.getElementById('wpConvertBtn');
+  btn.disabled = true;
+  document.getElementById('wpErr').style.display      = 'none';
+  document.getElementById('wpResults').style.display  = 'none';
+  document.getElementById('wpProgress').style.display = 'block';
+
+  var results = [];
+  for (var i = 0; i < wpFiles.length; i++) {
+    var f = wpFiles[i];
+    var statusEl = document.getElementById('wpStatus_' + i);
+    if (statusEl) { statusEl.textContent = 'Converting...'; statusEl.style.color = 'var(--gold)'; }
+
+    var pct = Math.round((i / wpFiles.length) * 100);
+    document.getElementById('wpProgressBar').style.width  = pct + '%';
+    document.getElementById('wpProgressLabel').textContent =
+      '(' + (i+1) + '/' + wpFiles.length + ') Converting: ' + f.name;
+
+    try {
+      var pdfBlob = await wpConvertOne(f);
+      var url     = URL.createObjectURL(pdfBlob);
+      var pdfName = f.name.replace(/\.[^.]+$/, '') + '.pdf';
+      results.push({ url:url, name:pdfName, ok:true });
+      if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
+      var a = document.createElement('a');
+      a.href = url; a.download = pdfName; a.click();
+    } catch(err) {
+      results.push({ name:f.name, ok:false, err:err.message });
+      if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
+    }
+  }
+
+  document.getElementById('wpProgressBar').style.width   = '100%';
+  document.getElementById('wpProgressLabel').textContent = '✅ All done! ' + results.filter(function(r){return r.ok;}).length + ' of ' + results.length + ' converted.';
+
+  var resDiv = document.getElementById('wpResults');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML =
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">DOWNLOADS</div>' +
+    results.map(function(r) {
+      if (r.ok) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+               'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+               '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
+               '<a href="' + r.url + '" download="' + r.name + '" ' +
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ Download</a></div>';
+      }
+      return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+             'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+             '❌ ' + r.name + ' — ' + r.err + '</div>';
+    }).join('');
+
+  btn.disabled = false;
+}
+
+async function wpConvertOne(file) {
+  var ext = wpExt(file.name);
+
+  // --- IMAGES → PDF ---
+  if (['jpg','jpeg','png','gif','bmp','webp'].includes(ext)) {
+    return await wpImageToPdf(file);
+  }
+
+  // --- TXT / CSV → PDF ---
+  if (ext === 'txt' || ext === 'csv') {
+    return await wpTextToPdf(file);
+  }
+
+  // --- XLSX / XLS → PDF ---
+  if (ext === 'xlsx' || ext === 'xls') {
+    return await wpExcelToPdf(file);
+  }
+
+  // --- DOCX / DOC → PDF ---
+  if (ext === 'docx' || ext === 'doc') {
+    return await wpWordToPdf(file);
+  }
+
+  throw new Error('Unsupported format: ' + ext);
+}
+
+// Image → PDF
+async function wpImageToPdf(file) {
+  var dataUrl = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsDataURL(file);
+  });
+  var img = await new Promise(function(res, rej) {
+    var i = new Image();
+    i.onload  = function() { res(i); };
+    i.onerror = function() { rej(new Error('Image load failed')); };
+    i.src = dataUrl;
+  });
+  var { jsPDF } = window.jspdf;
+  var pdf   = new jsPDF({ orientation: img.width > img.height ? 'l' : 'p', unit:'mm', format:'a4' });
+  var pw    = pdf.internal.pageSize.getWidth();
+  var ph    = pdf.internal.pageSize.getHeight();
+  var ratio = Math.min(pw / img.width, ph / img.height);
+  var iw    = img.width  * ratio;
+  var ih    = img.height * ratio;
+  var x     = (pw - iw) / 2;
+  var y     = (ph - ih) / 2;
+  var fmt   = file.name.match(/\.png$/i) ? 'PNG' : 'JPEG';
+  pdf.addImage(dataUrl, fmt, x, y, iw, ih);
+  return pdf.output('blob');
+}
+
+// Text / CSV → PDF
+async function wpTextToPdf(file) {
+  var text = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsText(file);
+  });
+  var { jsPDF } = window.jspdf;
+  var pdf    = new jsPDF({ unit:'mm', format:'a4' });
+  var margin = 15;
+  var pw     = pdf.internal.pageSize.getWidth()  - margin * 2;
+  var ph     = pdf.internal.pageSize.getHeight() - margin * 2;
+  var lh     = 6;
+  pdf.setFont('helvetica');
+  pdf.setFontSize(10);
+  var lines  = pdf.splitTextToSize(text, pw);
+  var y      = margin;
+  lines.forEach(function(line) {
+    if (y + lh > margin + ph) { pdf.addPage(); y = margin; }
+    pdf.text(line, margin, y);
+    y += lh;
+  });
+  return pdf.output('blob');
+}
+
+// Excel → PDF
+async function wpExcelToPdf(file) {
+  var arrayBuf = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsArrayBuffer(file);
+  });
+  var wb   = XLSX.read(arrayBuf, { type:'array' });
+  var html = '';
+  wb.SheetNames.forEach(function(name) {
+    html += '<h3 style="font-family:Arial;font-size:13px;margin:16px 0 8px">' + name + '</h3>';
+    html += XLSX.utils.sheet_to_html(wb.Sheets[name], { editable: false });
+  });
+
+  var container = document.createElement('div');
+  container.style.cssText =
+    'position:fixed;left:-9999px;top:0;width:1000px;background:#fff;' +
+    'color:#000;font-family:Arial,sans-serif;font-size:11px;padding:30px;box-sizing:border-box';
+  container.innerHTML = '<style>table{border-collapse:collapse;width:100%;margin-bottom:16px}' +
+    'td,th{border:1px solid #ccc;padding:4px 8px;font-size:10px}' +
+    'th{background:#f5f5f5;font-weight:bold}</style>' + html;
+  document.body.appendChild(container);
+
+  var canvas = await html2canvas(container, { scale:1.2, logging:false, background:'#ffffff' });
+  document.body.removeChild(container);
+
+  return await wpCanvasToPdf(canvas);
+}
+
+// Word → PDF
+async function wpWordToPdf(file) {
+  var arrayBuf = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsArrayBuffer(file);
+  });
+  var result    = await mammoth.convertToHtml({ arrayBuffer: arrayBuf });
+  var container = document.createElement('div');
+  container.style.cssText =
+    'position:fixed;left:-9999px;top:0;width:794px;background:#fff;' +
+    'color:#000;font-family:Arial,sans-serif;font-size:12px;line-height:1.6;' +
+    'padding:60px;box-sizing:border-box';
+  container.innerHTML = result.value;
+  document.body.appendChild(container);
+  var canvas = await html2canvas(container, { scale:1.5, logging:false, background:'#ffffff' });
+  document.body.removeChild(container);
+  return await wpCanvasToPdf(canvas);
+}
+
+// Canvas → PDF helper (handles multi-page)
+async function wpCanvasToPdf(canvas) {
+  var { jsPDF } = window.jspdf;
+  var pdf   = new jsPDF('p', 'mm', 'a4');
+  var pw    = pdf.internal.pageSize.getWidth();
+  var ph    = pdf.internal.pageSize.getHeight();
+  var imgW  = canvas.width;
+  var imgH  = canvas.height;
+  var scale = pw / (imgW * 0.264583);
+  var totalH= imgH * scale * 0.264583;
+  var pages = Math.ceil(totalH / ph);
+
+  for (var p = 0; p < pages; p++) {
+    if (p > 0) pdf.addPage();
+    var srcY   = p * (ph / scale / 0.264583);
+    var sliceH = Math.min(ph / scale / 0.264583, imgH - srcY);
+    var slice  = document.createElement('canvas');
+    slice.width  = imgW;
+    slice.height = Math.ceil(sliceH);
+    slice.getContext('2d').drawImage(canvas, 0, srcY, imgW, sliceH, 0, 0, imgW, sliceH);
+    pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, sliceH * scale * 0.264583);
+  }
+  return pdf.output('blob');
+}
+
+
+// ============================================
+// PDF TO WORD — 100% CLIENT SIDE
+// Uses PDF.js (extract text) + docx.js (build .docx)
+// Nothing sent to server. Completely free.
+// ============================================
+var pwFiles = [];
+
+// Set PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function pwDragOver(e) {
+  e.preventDefault();
+  document.getElementById('pwDropZone').style.borderColor = 'var(--gold)';
+  document.getElementById('pwDropZone').style.background  = 'var(--gold3)';
+}
+function pwDragLeave(e) {
+  document.getElementById('pwDropZone').style.borderColor = 'rgba(201,168,76,.3)';
+  document.getElementById('pwDropZone').style.background  = '';
+}
+function pwDrop(e) {
+  e.preventDefault();
+  pwDragLeave(e);
+  var files = Array.from(e.dataTransfer.files).filter(function(f) {
+    return f.name.match(/\.pdf$/i);
+  });
+  if (files.length) pwAddFiles(files);
+}
+function pwFilesSelected(fileList) {
+  pwAddFiles(Array.from(fileList));
+  document.getElementById('pwInput').value = '';
+}
+function pwAddFiles(files) {
+  files.forEach(function(f) {
+    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+      pwFiles.push(f);
+    }
+  });
+  pwRenderList();
+}
+function pwRenderList() {
+  var list = document.getElementById('pwFileList');
+  if (!pwFiles.length) { list.style.display = 'none'; return; }
+  list.style.display = 'block';
+  list.innerHTML = pwFiles.map(function(f, i) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+           'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+           '<span style="font-size:12px;color:var(--white)">📋 ' + f.name + '</span>' +
+           '<span style="display:flex;align-items:center;gap:12px">' +
+           '<span style="font-size:11px;color:var(--muted)">' +
+           (f.size/1024).toFixed(0) + ' KB</span>' +
+           '<span id="pwStatus_' + i + '" style="font-size:11px;color:var(--muted)">Pending</span>' +
+           '<button onclick="pwRemove(' + i + ')" style="background:none;border:none;' +
+           'color:var(--muted);cursor:pointer;font-size:14px;padding:0">✕</button>' +
+           '</span></div>';
+  }).join('');
+  document.getElementById('pwConvertBtn').disabled = false;
+}
+function pwRemove(i) {
+  pwFiles.splice(i, 1);
+  pwRenderList();
+  if (!pwFiles.length) document.getElementById('pwConvertBtn').disabled = true;
+}
+function pwClearAll() {
+  pwFiles = [];
+  pwRenderList();
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'none';
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwConvertBtn').disabled    = true;
+}
+
+async function pwConvertAll() {
+  if (!pwFiles.length) return;
+
+  // Ensure PDF.js worker is set
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  var btn = document.getElementById('pwConvertBtn');
+  btn.disabled = true;
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'block';
+
+  var results = [];
+  for (var i = 0; i < pwFiles.length; i++) {
+    var f = pwFiles[i];
+    var statusEl = document.getElementById('pwStatus_' + i);
+    if (statusEl) { statusEl.textContent = 'Converting...'; statusEl.style.color = 'var(--gold)'; }
+
+    document.getElementById('pwProgressLabel').textContent =
+      'Converting ' + (i+1) + ' of ' + pwFiles.length + ': ' + f.name;
+    document.getElementById('pwProgressBar').style.width =
+      Math.round((i / pwFiles.length) * 100) + '%';
+
+    try {
+      var docxBlob = await pwConvertOne(f);
+      var url      = URL.createObjectURL(docxBlob);
+      var docName  = f.name.replace(/\.pdf$/i, '') + '.docx';
+      results.push({ url: url, name: docName, ok: true });
+      if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
+
+      // Auto-download
+      var a = document.createElement('a');
+      a.href     = url;
+      a.download = docName;
+      a.click();
+    } catch(err) {
+      results.push({ name: f.name, ok: false, err: err.message });
+      if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
+    }
+  }
+
+  document.getElementById('pwProgressBar').style.width = '100%';
+  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+
+  var resDiv = document.getElementById('pwResults');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML =
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
+    results.map(function(r) {
+      if (r.ok) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+               'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+               '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
+               '<a href="' + r.url + '" download="' + r.name + '" ' +
+               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
+               'Download again</a></div>';
+      } else {
+        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+               '❌ ' + r.name + ' — ' + r.err + '</div>';
+      }
+    }).join('');
+
+  btn.disabled = false;
+}
+
+async function pwConvertOne(file) {
+  // Step 1: Read PDF as ArrayBuffer
+  var arrayBuf = await new Promise(function(res, rej) {
+    var reader = new FileReader();
+    reader.onload  = function(e) { res(e.target.result); };
+    reader.onerror = function()  { rej(new Error('File read failed')); };
+    reader.readAsArrayBuffer(file);
+  });
+
+  // Step 2: PDF.js — extract text from all pages
+  var pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+  var paragraphs = [];
+
+  for (var p = 1; p <= pdfDoc.numPages; p++) {
+    var page    = await pdfDoc.getPage(p);
+    var txtContent = await page.getTextContent();
+
+    // Group items into lines by Y position
+    var lines   = {};
+    txtContent.items.forEach(function(item) {
+      var y = Math.round(item.transform[5]);
+      if (!lines[y]) lines[y] = [];
+      lines[y].push(item.str);
+    });
+
+    // Sort lines top-to-bottom (descending Y in PDF coords)
+    var sortedYs = Object.keys(lines).map(Number).sort(function(a,b){ return b - a; });
+    sortedYs.forEach(function(y) {
+      var lineText = lines[y].join(' ').trim();
+      if (lineText) paragraphs.push(lineText);
+    });
+
+    // Add page break between pages
+    if (p < pdfDoc.numPages) paragraphs.push('');
+  }
+
+  // Step 3: docx.js — build .docx from extracted text
+  var { Document, Paragraph, TextRun, PageBreak, HeadingLevel } = docx;
+
+  var docParagraphs = paragraphs.map(function(text) {
+    if (text === '') {
+      // Empty = page break or spacing
+      return new Paragraph({ children: [new TextRun('')], spacing: { after: 200 } });
+    }
+    return new Paragraph({
+      children: [new TextRun({ text: text, size: 24, font: 'Arial' })],
+      spacing : { after: 120 }
+    });
+  });
+
+  var document = new Document({
+    sections: [{
+      properties: {},
+      children  : docParagraphs
+    }]
+  });
+
+  // Step 4: Pack to blob
+  var docxBlob = await docx.Packer.toBlob(document);
+  return docxBlob;
+}
+
+</script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js">
+// ============================================
+// UNIVERSAL → PDF CONVERTER — 100% CLIENT SIDE
+// Supports: docx, xlsx, txt, csv, jpg, png,
+//           gif, bmp, webp
+// Limits: 10 files, 20MB each, 50MB total
+// Libraries: mammoth, jsPDF, html2canvas, xlsx
+// Nothing sent to server. Completely free.
+// ============================================
+var wpFiles = [];
+var WP_MAX_FILES   = 10;
+var WP_MAX_PER_MB  = 20;
+var WP_MAX_TOTAL_MB= 50;
+
+var WP_ICONS = {
+  docx:'📝', doc:'📝',
+  xlsx:'📊', xls:'📊',
+  csv :'📊', txt :'📄',
+  jpg :'🖼️', jpeg:'🖼️',
+  png :'🖼️', gif :'🖼️',
+  bmp :'🖼️', webp:'🖼️'
+};
+
+function wpExt(name) {
+  return name.split('.').pop().toLowerCase();
+}
+function wpIcon(name) {
+  return WP_ICONS[wpExt(name)] || '📄';
+}
+
+function wpDragOver(e) {
+  e.preventDefault();
+  document.getElementById('wpDropZone').style.borderColor = 'var(--gold)';
+  document.getElementById('wpDropZone').style.background  = 'rgba(201,168,76,.08)';
+}
+function wpDragLeave(e) {
+  document.getElementById('wpDropZone').style.borderColor = 'rgba(201,168,76,.3)';
+  document.getElementById('wpDropZone').style.background  = '';
+}
+function wpDrop(e) {
+  e.preventDefault();
+  wpDragLeave(e);
+  wpAddFiles(Array.from(e.dataTransfer.files));
+}
+function wpFilesSelected(fileList) {
+  wpAddFiles(Array.from(fileList));
+  document.getElementById('wpInput').value = '';
+}
+
+function wpAddFiles(files) {
+  var warn = document.getElementById('wpLimitWarn');
+  warn.textContent = '';
+
+  files.forEach(function(f) {
+    var ext = wpExt(f.name);
+    var allowed = ['docx','doc','xlsx','xls','csv','txt',
+                   'jpg','jpeg','png','gif','bmp','webp'];
+    if (!allowed.includes(ext)) {
+      warn.textContent = f.name + ' — unsupported format, skipped';
+      return;
+    }
+    if (wpFiles.length >= WP_MAX_FILES) {
+      warn.textContent = 'Max ' + WP_MAX_FILES + ' files allowed';
+      return;
+    }
+    var perMB = f.size / 1024 / 1024;
+    if (perMB > WP_MAX_PER_MB) {
+      warn.textContent = f.name + ' exceeds ' + WP_MAX_PER_MB + 'MB limit, skipped';
+      return;
+    }
+    var totalMB = wpFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
+    if (totalMB + perMB > WP_MAX_TOTAL_MB) {
+      warn.textContent = 'Total size would exceed ' + WP_MAX_TOTAL_MB + 'MB, skipped';
+      return;
+    }
+    if (!wpFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
+      wpFiles.push(f);
+    }
+  });
+  wpRenderList();
+}
+
+function wpUpdateLimitBar() {
+  var totalMB = wpFiles.reduce(function(s,f){ return s + f.size; }, 0) / 1024 / 1024;
+  document.getElementById('wpLimitLabel').textContent =
+    wpFiles.length + ' / ' + WP_MAX_FILES + ' files  ·  ' +
+    totalMB.toFixed(1) + ' MB / ' + WP_MAX_TOTAL_MB + ' MB';
+}
+
+function wpRenderList() {
+  var list = document.getElementById('wpFileList');
+  if (!wpFiles.length) {
+    list.style.display = 'none';
+    document.getElementById('wpConvertBtn').disabled = true;
+    wpUpdateLimitBar();
+    return;
+  }
+  list.style.display = 'block';
+  list.innerHTML = wpFiles.map(function(f, i) {
+    var ext = wpExt(f.name).toUpperCase();
+    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+           'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+           '<div style="display:flex;align-items:center;gap:10px">' +
+           '<span style="font-size:18px">' + wpIcon(f.name) + '</span>' +
+           '<div>' +
+           '<div style="font-size:12px;color:var(--white)">' + f.name + '</div>' +
+           '<div style="font-size:10px;color:var(--muted)">' + ext + ' · ' +
+           (f.size/1024).toFixed(0) + ' KB</div></div></div>' +
+           '<div style="display:flex;align-items:center;gap:12px">' +
+           '<span id="wpStatus_' + i + '" style="font-size:11px;color:var(--muted)">Pending</span>' +
+           '<button onclick="wpRemove(' + i + ')" style="background:none;border:none;' +
+           'color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px">✕</button>' +
+           '</div></div>';
+  }).join('');
+  document.getElementById('wpConvertBtn').disabled = false;
+  wpUpdateLimitBar();
+}
+
+function wpRemove(i) {
+  wpFiles.splice(i, 1);
+  wpRenderList();
+}
+
+function wpClearAll() {
+  wpFiles = [];
+  wpRenderList();
+  document.getElementById('wpResults').style.display  = 'none';
+  document.getElementById('wpProgress').style.display = 'none';
+  document.getElementById('wpErr').style.display      = 'none';
+  document.getElementById('wpLimitWarn').textContent  = '';
+}
+
+async function wpConvertAll() {
+  if (!wpFiles.length) return;
+  var btn = document.getElementById('wpConvertBtn');
+  btn.disabled = true;
+  document.getElementById('wpErr').style.display      = 'none';
+  document.getElementById('wpResults').style.display  = 'none';
+  document.getElementById('wpProgress').style.display = 'block';
+
+  var results = [];
+  for (var i = 0; i < wpFiles.length; i++) {
+    var f = wpFiles[i];
+    var statusEl = document.getElementById('wpStatus_' + i);
+    if (statusEl) { statusEl.textContent = 'Converting...'; statusEl.style.color = 'var(--gold)'; }
+
+    var pct = Math.round((i / wpFiles.length) * 100);
+    document.getElementById('wpProgressBar').style.width  = pct + '%';
+    document.getElementById('wpProgressLabel').textContent =
+      '(' + (i+1) + '/' + wpFiles.length + ') Converting: ' + f.name;
+
+    try {
+      var pdfBlob = await wpConvertOne(f);
+      var url     = URL.createObjectURL(pdfBlob);
+      var pdfName = f.name.replace(/\.[^.]+$/, '') + '.pdf';
+      results.push({ url:url, name:pdfName, ok:true });
+      if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
+      var a = document.createElement('a');
+      a.href = url; a.download = pdfName; a.click();
+    } catch(err) {
+      results.push({ name:f.name, ok:false, err:err.message });
+      if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
+    }
+  }
+
+  document.getElementById('wpProgressBar').style.width   = '100%';
+  document.getElementById('wpProgressLabel').textContent = '✅ All done! ' + results.filter(function(r){return r.ok;}).length + ' of ' + results.length + ' converted.';
+
+  var resDiv = document.getElementById('wpResults');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML =
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">DOWNLOADS</div>' +
+    results.map(function(r) {
+      if (r.ok) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+               'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+               '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
+               '<a href="' + r.url + '" download="' + r.name + '" ' +
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ Download</a></div>';
+      }
+      return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+             'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+             '❌ ' + r.name + ' — ' + r.err + '</div>';
+    }).join('');
+
+  btn.disabled = false;
+}
+
+async function wpConvertOne(file) {
+  var ext = wpExt(file.name);
+
+  // --- IMAGES → PDF ---
+  if (['jpg','jpeg','png','gif','bmp','webp'].includes(ext)) {
+    return await wpImageToPdf(file);
+  }
+
+  // --- TXT / CSV → PDF ---
+  if (ext === 'txt' || ext === 'csv') {
+    return await wpTextToPdf(file);
+  }
+
+  // --- XLSX / XLS → PDF ---
+  if (ext === 'xlsx' || ext === 'xls') {
+    return await wpExcelToPdf(file);
+  }
+
+  // --- DOCX / DOC → PDF ---
+  if (ext === 'docx' || ext === 'doc') {
+    return await wpWordToPdf(file);
+  }
+
+  throw new Error('Unsupported format: ' + ext);
+}
+
+// Image → PDF
+async function wpImageToPdf(file) {
+  var dataUrl = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsDataURL(file);
+  });
+  var img = await new Promise(function(res, rej) {
+    var i = new Image();
+    i.onload  = function() { res(i); };
+    i.onerror = function() { rej(new Error('Image load failed')); };
+    i.src = dataUrl;
+  });
+  var { jsPDF } = window.jspdf;
+  var pdf   = new jsPDF({ orientation: img.width > img.height ? 'l' : 'p', unit:'mm', format:'a4' });
+  var pw    = pdf.internal.pageSize.getWidth();
+  var ph    = pdf.internal.pageSize.getHeight();
+  var ratio = Math.min(pw / img.width, ph / img.height);
+  var iw    = img.width  * ratio;
+  var ih    = img.height * ratio;
+  var x     = (pw - iw) / 2;
+  var y     = (ph - ih) / 2;
+  var fmt   = file.name.match(/\.png$/i) ? 'PNG' : 'JPEG';
+  pdf.addImage(dataUrl, fmt, x, y, iw, ih);
+  return pdf.output('blob');
+}
+
+// Text / CSV → PDF
+async function wpTextToPdf(file) {
+  var text = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsText(file);
+  });
+  var { jsPDF } = window.jspdf;
+  var pdf    = new jsPDF({ unit:'mm', format:'a4' });
+  var margin = 15;
+  var pw     = pdf.internal.pageSize.getWidth()  - margin * 2;
+  var ph     = pdf.internal.pageSize.getHeight() - margin * 2;
+  var lh     = 6;
+  pdf.setFont('helvetica');
+  pdf.setFontSize(10);
+  var lines  = pdf.splitTextToSize(text, pw);
+  var y      = margin;
+  lines.forEach(function(line) {
+    if (y + lh > margin + ph) { pdf.addPage(); y = margin; }
+    pdf.text(line, margin, y);
+    y += lh;
+  });
+  return pdf.output('blob');
+}
+
+// Excel → PDF
+async function wpExcelToPdf(file) {
+  var arrayBuf = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsArrayBuffer(file);
+  });
+  var wb   = XLSX.read(arrayBuf, { type:'array' });
+  var html = '';
+  wb.SheetNames.forEach(function(name) {
+    html += '<h3 style="font-family:Arial;font-size:13px;margin:16px 0 8px">' + name + '</h3>';
+    html += XLSX.utils.sheet_to_html(wb.Sheets[name], { editable: false });
+  });
+
+  var container = document.createElement('div');
+  container.style.cssText =
+    'position:fixed;left:-9999px;top:0;width:1000px;background:#fff;' +
+    'color:#000;font-family:Arial,sans-serif;font-size:11px;padding:30px;box-sizing:border-box';
+  container.innerHTML = '<style>table{border-collapse:collapse;width:100%;margin-bottom:16px}' +
+    'td,th{border:1px solid #ccc;padding:4px 8px;font-size:10px}' +
+    'th{background:#f5f5f5;font-weight:bold}</style>' + html;
+  document.body.appendChild(container);
+
+  var canvas = await html2canvas(container, { scale:1.2, logging:false, background:'#ffffff' });
+  document.body.removeChild(container);
+
+  return await wpCanvasToPdf(canvas);
+}
+
+// Word → PDF
+async function wpWordToPdf(file) {
+  var arrayBuf = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsArrayBuffer(file);
+  });
+  var result    = await mammoth.convertToHtml({ arrayBuffer: arrayBuf });
+  var container = document.createElement('div');
+  container.style.cssText =
+    'position:fixed;left:-9999px;top:0;width:794px;background:#fff;' +
+    'color:#000;font-family:Arial,sans-serif;font-size:12px;line-height:1.6;' +
+    'padding:60px;box-sizing:border-box';
+  container.innerHTML = result.value;
+  document.body.appendChild(container);
+  var canvas = await html2canvas(container, { scale:1.5, logging:false, background:'#ffffff' });
+  document.body.removeChild(container);
+  return await wpCanvasToPdf(canvas);
+}
+
+// Canvas → PDF helper (handles multi-page)
+async function wpCanvasToPdf(canvas) {
+  var { jsPDF } = window.jspdf;
+  var pdf   = new jsPDF('p', 'mm', 'a4');
+  var pw    = pdf.internal.pageSize.getWidth();
+  var ph    = pdf.internal.pageSize.getHeight();
+  var imgW  = canvas.width;
+  var imgH  = canvas.height;
+  var scale = pw / (imgW * 0.264583);
+  var totalH= imgH * scale * 0.264583;
+  var pages = Math.ceil(totalH / ph);
+
+  for (var p = 0; p < pages; p++) {
+    if (p > 0) pdf.addPage();
+    var srcY   = p * (ph / scale / 0.264583);
+    var sliceH = Math.min(ph / scale / 0.264583, imgH - srcY);
+    var slice  = document.createElement('canvas');
+    slice.width  = imgW;
+    slice.height = Math.ceil(sliceH);
+    slice.getContext('2d').drawImage(canvas, 0, srcY, imgW, sliceH, 0, 0, imgW, sliceH);
+    pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, sliceH * scale * 0.264583);
+  }
+  return pdf.output('blob');
+}
+
+
+// ============================================
+// PDF TO WORD — 100% CLIENT SIDE
+// Uses PDF.js (extract text) + docx.js (build .docx)
+// Nothing sent to server. Completely free.
+// ============================================
+var pwFiles = [];
+
+// Set PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function pwDragOver(e) {
+  e.preventDefault();
+  document.getElementById('pwDropZone').style.borderColor = 'var(--gold)';
+  document.getElementById('pwDropZone').style.background  = 'var(--gold3)';
+}
+function pwDragLeave(e) {
+  document.getElementById('pwDropZone').style.borderColor = 'rgba(201,168,76,.3)';
+  document.getElementById('pwDropZone').style.background  = '';
+}
+function pwDrop(e) {
+  e.preventDefault();
+  pwDragLeave(e);
+  var files = Array.from(e.dataTransfer.files).filter(function(f) {
+    return f.name.match(/\.pdf$/i);
+  });
+  if (files.length) pwAddFiles(files);
+}
+function pwFilesSelected(fileList) {
+  pwAddFiles(Array.from(fileList));
+  document.getElementById('pwInput').value = '';
+}
+function pwAddFiles(files) {
+  files.forEach(function(f) {
+    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+      pwFiles.push(f);
+    }
+  });
+  pwRenderList();
+}
+function pwRenderList() {
+  var list = document.getElementById('pwFileList');
+  if (!pwFiles.length) { list.style.display = 'none'; return; }
+  list.style.display = 'block';
+  list.innerHTML = pwFiles.map(function(f, i) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+           'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+           '<span style="font-size:12px;color:var(--white)">📋 ' + f.name + '</span>' +
+           '<span style="display:flex;align-items:center;gap:12px">' +
+           '<span style="font-size:11px;color:var(--muted)">' +
+           (f.size/1024).toFixed(0) + ' KB</span>' +
+           '<span id="pwStatus_' + i + '" style="font-size:11px;color:var(--muted)">Pending</span>' +
+           '<button onclick="pwRemove(' + i + ')" style="background:none;border:none;' +
+           'color:var(--muted);cursor:pointer;font-size:14px;padding:0">✕</button>' +
+           '</span></div>';
+  }).join('');
+  document.getElementById('pwConvertBtn').disabled = false;
+}
+function pwRemove(i) {
+  pwFiles.splice(i, 1);
+  pwRenderList();
+  if (!pwFiles.length) document.getElementById('pwConvertBtn').disabled = true;
+}
+function pwClearAll() {
+  pwFiles = [];
+  pwRenderList();
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'none';
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwConvertBtn').disabled    = true;
+}
+
+async function pwConvertAll() {
+  if (!pwFiles.length) return;
+
+  // Ensure PDF.js worker is set
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  var btn = document.getElementById('pwConvertBtn');
+  btn.disabled = true;
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'block';
+
+  var results = [];
+  for (var i = 0; i < pwFiles.length; i++) {
+    var f = pwFiles[i];
+    var statusEl = document.getElementById('pwStatus_' + i);
+    if (statusEl) { statusEl.textContent = 'Converting...'; statusEl.style.color = 'var(--gold)'; }
+
+    document.getElementById('pwProgressLabel').textContent =
+      'Converting ' + (i+1) + ' of ' + pwFiles.length + ': ' + f.name;
+    document.getElementById('pwProgressBar').style.width =
+      Math.round((i / pwFiles.length) * 100) + '%';
+
+    try {
+      var docxBlob = await pwConvertOne(f);
+      var url      = URL.createObjectURL(docxBlob);
+      var docName  = f.name.replace(/\.pdf$/i, '') + '.docx';
+      results.push({ url: url, name: docName, ok: true });
+      if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
+
+      // Auto-download
+      var a = document.createElement('a');
+      a.href     = url;
+      a.download = docName;
+      a.click();
+    } catch(err) {
+      results.push({ name: f.name, ok: false, err: err.message });
+      if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
+    }
+  }
+
+  document.getElementById('pwProgressBar').style.width = '100%';
+  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+
+  var resDiv = document.getElementById('pwResults');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML =
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
+    results.map(function(r) {
+      if (r.ok) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+               'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+               '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
+               '<a href="' + r.url + '" download="' + r.name + '" ' +
+               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
+               'Download again</a></div>';
+      } else {
+        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+               '❌ ' + r.name + ' — ' + r.err + '</div>';
+      }
+    }).join('');
+
+  btn.disabled = false;
+}
+
+async function pwConvertOne(file) {
+  // Step 1: Read PDF as ArrayBuffer
+  var arrayBuf = await new Promise(function(res, rej) {
+    var reader = new FileReader();
+    reader.onload  = function(e) { res(e.target.result); };
+    reader.onerror = function()  { rej(new Error('File read failed')); };
+    reader.readAsArrayBuffer(file);
+  });
+
+  // Step 2: PDF.js — extract text from all pages
+  var pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+  var paragraphs = [];
+
+  for (var p = 1; p <= pdfDoc.numPages; p++) {
+    var page    = await pdfDoc.getPage(p);
+    var txtContent = await page.getTextContent();
+
+    // Group items into lines by Y position
+    var lines   = {};
+    txtContent.items.forEach(function(item) {
+      var y = Math.round(item.transform[5]);
+      if (!lines[y]) lines[y] = [];
+      lines[y].push(item.str);
+    });
+
+    // Sort lines top-to-bottom (descending Y in PDF coords)
+    var sortedYs = Object.keys(lines).map(Number).sort(function(a,b){ return b - a; });
+    sortedYs.forEach(function(y) {
+      var lineText = lines[y].join(' ').trim();
+      if (lineText) paragraphs.push(lineText);
+    });
+
+    // Add page break between pages
+    if (p < pdfDoc.numPages) paragraphs.push('');
+  }
+
+  // Step 3: docx.js — build .docx from extracted text
+  var { Document, Paragraph, TextRun, PageBreak, HeadingLevel } = docx;
+
+  var docParagraphs = paragraphs.map(function(text) {
+    if (text === '') {
+      // Empty = page break or spacing
+      return new Paragraph({ children: [new TextRun('')], spacing: { after: 200 } });
+    }
+    return new Paragraph({
+      children: [new TextRun({ text: text, size: 24, font: 'Arial' })],
+      spacing : { after: 120 }
+    });
+  });
+
+  var document = new Document({
+    sections: [{
+      properties: {},
+      children  : docParagraphs
+    }]
+  });
+
+  // Step 4: Pack to blob
+  var docxBlob = await docx.Packer.toBlob(document);
+  return docxBlob;
+}
+
+</script>
 </head>
 <body>
 
@@ -1095,37 +3160,156 @@ input[type=file]{display:none}
         id="commitBody"></div>
     </div>
 
+  </div>
+</div>
 
-    <!-- WORD TO PDF SECTION -->
-    <div class="tool-card" style="margin-top:24px" id="wordPdfCard">
-      <div class="card-section">Word to PDF Converter</div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:20px;letter-spacing:.5px">
-        Upload a .doc or .docx file and download it instantly as a PDF.
+<!-- ============================================
+     WORD TO PDF PAGE
+     ============================================ -->
+<div id="wordPdfPage" class="page">
+  <div class="tool-wrap">
+
+    <div class="tool-card">
+      <div class="card-section">Universal → PDF Converter</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:.5px">
+        Drop any file — it converts to PDF instantly in your browser. Nothing is uploaded to any server.
       </p>
-      <div class="form-group">
-        <label class="form-label">Upload Word File</label>
-        <div class="upload-zone" id="wordZone"
-          onclick="document.getElementById('wordInput').click()"
-          style="padding:24px">
-          <div class="upload-ico" style="font-size:28px;margin-bottom:8px">📝</div>
-          <h4 id="wordTitle" style="font-size:13px;margin-bottom:4px">Click to Upload</h4>
-          <p id="wordSub" style="font-size:11px">.doc or .docx files only</p>
+
+      <!-- Supported formats badge row -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+        <span style="font-size:10px;background:var(--navy);color:var(--gold);padding:3px 8px;border-radius:3px;letter-spacing:1px">DOCX</span>
+        <span style="font-size:10px;background:var(--navy);color:var(--gold);padding:3px 8px;border-radius:3px;letter-spacing:1px">XLSX</span>
+        <span style="font-size:10px;background:var(--navy);color:var(--gold);padding:3px 8px;border-radius:3px;letter-spacing:1px">TXT</span>
+        <span style="font-size:10px;background:var(--navy);color:var(--gold);padding:3px 8px;border-radius:3px;letter-spacing:1px">JPG</span>
+        <span style="font-size:10px;background:var(--navy);color:var(--gold);padding:3px 8px;border-radius:3px;letter-spacing:1px">PNG</span>
+        <span style="font-size:10px;background:var(--navy);color:var(--gold);padding:3px 8px;border-radius:3px;letter-spacing:1px">WEBP</span>
+        <span style="font-size:10px;background:var(--navy);color:var(--gold);padding:3px 8px;border-radius:3px;letter-spacing:1px">GIF</span>
+        <span style="font-size:10px;background:var(--navy);color:var(--gold);padding:3px 8px;border-radius:3px;letter-spacing:1px">BMP</span>
+        <span style="font-size:10px;background:var(--navy2);color:var(--muted);padding:3px 8px;border-radius:3px;letter-spacing:1px">Max 10 files · 20MB each · 50MB total</span>
+      </div>
+
+      <!-- Drop Zone -->
+      <div id="wpDropZone"
+        style="border:2px dashed rgba(201,168,76,.3);border-radius:6px;
+               padding:40px 24px;text-align:center;cursor:pointer;
+               transition:border-color .3s,background .3s;margin-bottom:16px;
+               position:relative"
+        onclick="document.getElementById('wpInput').click()"
+        ondragover="wpDragOver(event)"
+        ondragleave="wpDragLeave(event)"
+        ondrop="wpDrop(event)">
+        <div style="font-size:40px;margin-bottom:10px">📂</div>
+        <h4 style="font-size:13px;color:var(--white);letter-spacing:1px;margin-bottom:6px">
+          Drop Any Files Here or Click to Browse
+        </h4>
+        <p style="font-size:11px;color:var(--muted)">Word · Excel · Text · Images — all convert to PDF</p>
+      </div>
+      <input type="file" id="wpInput"
+        accept=".doc,.docx,.xlsx,.xls,.txt,.csv,.jpg,.jpeg,.png,.gif,.bmp,.webp"
+        multiple onchange="wpFilesSelected(this.files)" style="display:none">
+
+      <!-- Limit bar -->
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:11px;color:var(--muted)" id="wpLimitLabel">0 / 10 files · 0 MB / 50 MB</span>
+        <span style="font-size:11px;color:var(--gold)" id="wpLimitWarn"></span>
+      </div>
+
+      <!-- File List -->
+      <div id="wpFileList" style="display:none;margin-bottom:16px"></div>
+
+      <!-- Buttons -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn-extract" id="wpConvertBtn"
+          onclick="wpConvertAll()" disabled
+          style="flex:1;min-width:160px">
+          Convert All to PDF
+        </button>
+        <button onclick="wpClearAll()"
+          style="padding:12px 20px;background:transparent;
+                 border:1px solid var(--border);border-radius:4px;
+                 color:var(--muted);cursor:pointer;font-size:11px;
+                 letter-spacing:2px;font-family:Montserrat,sans-serif;
+                 text-transform:uppercase">
+          Clear All
+        </button>
+      </div>
+
+      <!-- Progress -->
+      <div id="wpProgress" style="display:none;margin-top:16px">
+        <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:8px"
+          id="wpProgressLabel">Converting...</div>
+        <div style="background:var(--navy);border-radius:4px;height:6px;overflow:hidden">
+          <div id="wpProgressBar"
+            style="height:6px;background:var(--gold);width:0%;transition:width .4s"></div>
         </div>
-        <input type="file" id="wordInput" accept=".doc,.docx" onchange="onWordFile(this)">
       </div>
 
-      <button class="btn-extract" id="wordPdfBtn"
-        onclick="convertWordToPdf()"
-        style="background:transparent;border:1px solid var(--gold);color:var(--gold);margin-top:4px"
-        disabled>
-        Convert to PDF &amp; Download
-      </button>
+      <!-- Results -->
+      <div id="wpResults" style="display:none;margin-top:16px"></div>
 
-      <div class="status-bar" id="wordStatus" style="display:none">
-        <div class="spinner"></div>
-        <span>Converting — please wait...</span>
+      <div id="wpErr" class="err-bar" style="display:none;margin-top:12px"></div>
+    </div>
+
+    <!-- PDF TO WORD SECTION -->
+    <div class="tool-card" style="margin-top:24px">
+      <div class="card-section">PDF to Word Converter</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:20px;letter-spacing:.5px">
+        Upload one or more PDF files — each converts to a separate .docx download.
+        100% client-side. Nothing is sent to any server.
+      </p>
+
+      <!-- Drop Zone -->
+      <div id="pwDropZone"
+        style="border:2px dashed rgba(201,168,76,.3);border-radius:6px;
+               padding:36px 24px;text-align:center;cursor:pointer;
+               transition:border-color .3s,background .3s;margin-bottom:16px"
+        onclick="document.getElementById('pwInput').click()"
+        ondragover="pwDragOver(event)"
+        ondragleave="pwDragLeave(event)"
+        ondrop="pwDrop(event)">
+        <div style="font-size:32px;margin-bottom:8px">📋</div>
+        <h4 style="font-size:13px;color:var(--white);letter-spacing:1px;margin-bottom:4px">
+          Click or Drag &amp; Drop PDF Files Here
+        </h4>
+        <p style="font-size:11px;color:var(--muted)">.pdf files — multiple files supported</p>
       </div>
-      <div class="err-bar" id="wordErr" style="display:none"></div>
+      <input type="file" id="pwInput" accept=".pdf" multiple
+        onchange="pwFilesSelected(this.files)" style="display:none">
+
+      <!-- File List -->
+      <div id="pwFileList" style="display:none;margin-bottom:16px"></div>
+
+      <!-- Buttons -->
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn-extract" id="pwConvertBtn"
+          onclick="pwConvertAll()" disabled
+          style="flex:1;min-width:160px">
+          Convert All to Word
+        </button>
+        <button onclick="pwClearAll()"
+          style="padding:12px 20px;background:transparent;
+                 border:1px solid var(--border);border-radius:4px;
+                 color:var(--muted);cursor:pointer;font-size:11px;
+                 letter-spacing:2px;font-family:Montserrat,sans-serif;
+                 text-transform:uppercase">
+          Clear
+        </button>
+      </div>
+
+      <!-- Progress -->
+      <div id="pwProgress" style="display:none;margin-top:16px">
+        <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-bottom:8px"
+          id="pwProgressLabel">Converting...</div>
+        <div style="background:var(--navy);border-radius:4px;height:4px;overflow:hidden">
+          <div id="pwProgressBar"
+            style="height:4px;background:var(--gold);width:0%;transition:width .3s"></div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="pwResults" style="display:none;margin-top:16px"></div>
+
+      <div id="pwErr" class="err-bar" style="display:none;margin-top:12px"></div>
     </div>
 
   </div>
@@ -1642,17 +3826,7 @@ input[type=file]{display:none}
 // CONFIGURATION
 // Replace with your real Apps Script URL
 // ============================================
-const BACKEND = 'https://script.google.com/macros/s/AKfycbychS8ttfUixVXj8qK4DwTN4jdGJtjcjjP5OF_IIYBm6odnC8sCow3fz_d7p-sj6mCPSw/exec';
-
-// Sends data to Apps Script avoiding CORS preflight
-async function callBackend(data) {
-  const res = await fetch(BACKEND, {
-    method : 'POST',
-    headers: {'Content-Type':'application/x-www-form-urlencoded'},
-    body   : 'payload=' + encodeURIComponent(JSON.stringify(data))
-  });
-  return res.json();
-}
+const BACKEND = 'https://script.google.com/macros/s/AKfycbxWTmFruD_qSL7MNBMZ134UiqqSTVfU39O31PDlVPGyvpL9lJVJ2zD-VrsPzv2TiI4EYw/exec';
 
 let currentUser    = null;
 let extractedText  = '';
@@ -1698,11 +3872,16 @@ async function doLogin() {
   document.getElementById('loginErr').style.display = 'none';
 
   try {
-    const d = await callBackend({
+    const res = await fetch(BACKEND, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
         action: 'login',
         clientName: name,
         password  : pw
-      });
+      })
+    });
+    const d = await res.json();
     if (d.error) {
       document.getElementById('loginErr').textContent = d.error;
       document.getElementById('loginErr').style.display = 'block';
@@ -1767,7 +3946,8 @@ function showPage(name) {
     packages: 'packagesPage',
     faq     : 'faqPage',
     contact : 'contactPage',
-    settings: 'settingsPage'
+    settings: 'settingsPage',
+    wordPdf : 'wordPdfPage'
   };
   const navMap = {
     tool    : 'navHome',
@@ -1844,14 +4024,19 @@ async function doExtract() {
 
   try {
     const b64 = await toBase64(pdfFile);
-    const d = await callBackend({
+    const res = await fetch(BACKEND, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
         action    : 'extract',
         clientName: currentUser.name,
         password  : currentUser.pw,
         fileNo,
         pdfBase64 : b64,
         fileName  : pdfFile.name
-      });
+      })
+    });
+    const d = await res.json();
     document.getElementById('statusBar')
       .style.display = 'none';
 
@@ -1958,7 +4143,10 @@ async function doCommitment() {
 
   try {
     const b64 = await toBase64(commitFile);
-    const d = await callBackend({
+    const res = await fetch(BACKEND, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
         action    : 'commitment',
         clientName: currentUser.name,
         password  : currentUser.pw,
@@ -1966,7 +4154,9 @@ async function doCommitment() {
         signatory,
         pdfBase64 : b64,
         fileName  : commitFile.name
-      });
+      })
+    });
+    const d = await res.json();
     document.getElementById('commitStatus')
       .style.display = 'none';
 
@@ -2023,22 +4213,14 @@ async function doCommitment() {
 // DOWNLOAD XML
 // ============================================
 function dlXML() {
-  // Pre-fill with existing fileNo if set
-  const existing = document.getElementById('fileNo').value.trim();
-  document.getElementById('xmlFileNo').value = existing;
-  const modal = document.getElementById('fileNoModal');
-  modal.style.display = 'flex';
-  document.getElementById('xmlFileNo').focus();
-}
-
-function confirmXmlDownload() {
-  const fno  = document.getElementById('xmlFileNo').value.trim() || 'commitment';
-  document.getElementById('fileNoModal').style.display = 'none';
-  const blob = new Blob([xmlText], {type:'application/xml'});
+  const fno  = document.getElementById('fileNo')
+    .value.trim() || 'commitment';
+  const blob = new Blob([xmlText],
+    {type:'application/xml'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  a.download = fno + '.xml';
+  a.download = 'commitment-' + fno + '.xml';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -2060,11 +4242,16 @@ function copyCommit() {
 async function loadSettings() {
   if (!currentUser) return;
   try {
-    const d = await callBackend({
+    const res = await fetch(BACKEND, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
         action    : 'getSettings',
         clientName: currentUser.name,
         password  : currentUser.pw
-      });
+      })
+    });
+    const d = await res.json();
     if (!d.error) {
       clientSettings.allFields      = d.allFields      || [];
       clientSettings.selectedFields = d.selectedFields || [];
@@ -2156,13 +4343,18 @@ async function saveSettings() {
   errEl.style.display   = 'none';
 
   try {
-    const d = await callBackend({
+    const res = await fetch(BACKEND, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
         action        : 'saveSettings',
         clientName    : currentUser.name,
         password      : currentUser.pw,
         selectedFields: clientSettings.selectedFields,
         excelLink     : link
-      });
+      })
+    });
+    const d = await res.json();
     if (d.error) {
       errEl.textContent   = d.error;
       errEl.style.display = 'block';
@@ -2234,187 +4426,556 @@ function sendContact() {
 }
 
 
-
 // ============================================
-// WORD TO PDF CONVERTER
+// UNIVERSAL → PDF CONVERTER — 100% CLIENT SIDE
+// Supports: docx, xlsx, txt, csv, jpg, png,
+//           gif, bmp, webp
+// Limits: 10 files, 20MB each, 50MB total
+// Libraries: mammoth, jsPDF, html2canvas, xlsx
+// Nothing sent to server. Completely free.
 // ============================================
-let wordFile = null;
+var wpFiles = [];
+var WP_MAX_FILES   = 10;
+var WP_MAX_PER_MB  = 20;
+var WP_MAX_TOTAL_MB= 50;
 
-function onWordFile(input) {
-  wordFile = input.files[0];
-  if (!wordFile) return;
-  document.getElementById('wordTitle').textContent = wordFile.name;
-  document.getElementById('wordSub').textContent   =
-    (wordFile.size / 1024).toFixed(0) + ' KB';
-  document.getElementById('wordZone').classList.add('has-file');
-  document.getElementById('wordPdfBtn').disabled = false;
+var WP_ICONS = {
+  docx:'📝', doc:'📝',
+  xlsx:'📊', xls:'📊',
+  csv :'📊', txt :'📄',
+  jpg :'🖼️', jpeg:'🖼️',
+  png :'🖼️', gif :'🖼️',
+  bmp :'🖼️', webp:'🖼️'
+};
+
+function wpExt(name) {
+  return name.split('.').pop().toLowerCase();
+}
+function wpIcon(name) {
+  return WP_ICONS[wpExt(name)] || '📄';
 }
 
-async function convertWordToPdf() {
-  if (!wordFile) return;
-  const btn = document.getElementById('wordPdfBtn');
-  btn.disabled = true;
-  document.getElementById('wordStatus').style.display = 'flex';
-  document.getElementById('wordErr').style.display    = 'none';
+function wpDragOver(e) {
+  e.preventDefault();
+  document.getElementById('wpDropZone').style.borderColor = 'var(--gold)';
+  document.getElementById('wpDropZone').style.background  = 'rgba(201,168,76,.08)';
+}
+function wpDragLeave(e) {
+  document.getElementById('wpDropZone').style.borderColor = 'rgba(201,168,76,.3)';
+  document.getElementById('wpDropZone').style.background  = '';
+}
+function wpDrop(e) {
+  e.preventDefault();
+  wpDragLeave(e);
+  wpAddFiles(Array.from(e.dataTransfer.files));
+}
+function wpFilesSelected(fileList) {
+  wpAddFiles(Array.from(fileList));
+  document.getElementById('wpInput').value = '';
+}
 
-  try {
-    const b64 = await toBase64(wordFile);
-    const d   = await callBackend({
-      action    : 'wordToPdf',
-      clientName: currentUser.name,
-      password  : currentUser.pw,
-      fileBase64: b64,
-      fileName  : wordFile.name
-    });
-    document.getElementById('wordStatus').style.display = 'none';
+function wpAddFiles(files) {
+  var warn = document.getElementById('wpLimitWarn');
+  warn.textContent = '';
 
-    if (d.error) {
-      document.getElementById('wordErr').textContent    = d.error;
-      document.getElementById('wordErr').style.display  = 'block';
-      btn.disabled = false;
+  files.forEach(function(f) {
+    var ext = wpExt(f.name);
+    var allowed = ['docx','doc','xlsx','xls','csv','txt',
+                   'jpg','jpeg','png','gif','bmp','webp'];
+    if (!allowed.includes(ext)) {
+      warn.textContent = f.name + ' — unsupported format, skipped';
       return;
     }
+    if (wpFiles.length >= WP_MAX_FILES) {
+      warn.textContent = 'Max ' + WP_MAX_FILES + ' files allowed';
+      return;
+    }
+    var perMB = f.size / 1024 / 1024;
+    if (perMB > WP_MAX_PER_MB) {
+      warn.textContent = f.name + ' exceeds ' + WP_MAX_PER_MB + 'MB limit, skipped';
+      return;
+    }
+    var totalMB = wpFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
+    if (totalMB + perMB > WP_MAX_TOTAL_MB) {
+      warn.textContent = 'Total size would exceed ' + WP_MAX_TOTAL_MB + 'MB, skipped';
+      return;
+    }
+    if (!wpFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
+      wpFiles.push(f);
+    }
+  });
+  wpRenderList();
+}
 
-    // d.pdfBase64 comes back from Apps Script
-    const binary = atob(d.pdfBase64);
-    const bytes  = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++)
-      bytes[i] = binary.charCodeAt(i);
-    const blob = new Blob([bytes], {type:'application/pdf'});
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = wordFile.name.replace(/\.docx?$/i, '') + '.pdf';
-    a.click();
-    URL.revokeObjectURL(url);
+function wpUpdateLimitBar() {
+  var totalMB = wpFiles.reduce(function(s,f){ return s + f.size; }, 0) / 1024 / 1024;
+  document.getElementById('wpLimitLabel').textContent =
+    wpFiles.length + ' / ' + WP_MAX_FILES + ' files  ·  ' +
+    totalMB.toFixed(1) + ' MB / ' + WP_MAX_TOTAL_MB + ' MB';
+}
 
-    // Reset
-    wordFile = null;
-    document.getElementById('wordInput').value  = '';
-    document.getElementById('wordTitle').textContent = 'Click to Upload';
-    document.getElementById('wordSub').textContent   = '.doc or .docx files only';
-    document.getElementById('wordZone').classList.remove('has-file');
-    btn.disabled = true;
-
-  } catch(e) {
-    document.getElementById('wordStatus').style.display = 'none';
-    document.getElementById('wordErr').textContent   = 'Conversion failed. Please try again.';
-    document.getElementById('wordErr').style.display = 'block';
-    btn.disabled = false;
+function wpRenderList() {
+  var list = document.getElementById('wpFileList');
+  if (!wpFiles.length) {
+    list.style.display = 'none';
+    document.getElementById('wpConvertBtn').disabled = true;
+    wpUpdateLimitBar();
+    return;
   }
+  list.style.display = 'block';
+  list.innerHTML = wpFiles.map(function(f, i) {
+    var ext = wpExt(f.name).toUpperCase();
+    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+           'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+           '<div style="display:flex;align-items:center;gap:10px">' +
+           '<span style="font-size:18px">' + wpIcon(f.name) + '</span>' +
+           '<div>' +
+           '<div style="font-size:12px;color:var(--white)">' + f.name + '</div>' +
+           '<div style="font-size:10px;color:var(--muted)">' + ext + ' · ' +
+           (f.size/1024).toFixed(0) + ' KB</div></div></div>' +
+           '<div style="display:flex;align-items:center;gap:12px">' +
+           '<span id="wpStatus_' + i + '" style="font-size:11px;color:var(--muted)">Pending</span>' +
+           '<button onclick="wpRemove(' + i + ')" style="background:none;border:none;' +
+           'color:var(--muted);cursor:pointer;font-size:14px;padding:0 4px">✕</button>' +
+           '</div></div>';
+  }).join('');
+  document.getElementById('wpConvertBtn').disabled = false;
+  wpUpdateLimitBar();
 }
 
+function wpRemove(i) {
+  wpFiles.splice(i, 1);
+  wpRenderList();
+}
 
-// ============================================
-// DRAG AND DROP — ALL UPLOAD ZONES
-// ============================================
-function setupDragDrop(zoneId, accept, handler) {
-  const zone = document.getElementById(zoneId);
-  if (!zone) return;
+function wpClearAll() {
+  wpFiles = [];
+  wpRenderList();
+  document.getElementById('wpResults').style.display  = 'none';
+  document.getElementById('wpProgress').style.display = 'none';
+  document.getElementById('wpErr').style.display      = 'none';
+  document.getElementById('wpLimitWarn').textContent  = '';
+}
 
-  zone.addEventListener('dragover', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    zone.classList.add('drag-over');
-  });
+async function wpConvertAll() {
+  if (!wpFiles.length) return;
+  var btn = document.getElementById('wpConvertBtn');
+  btn.disabled = true;
+  document.getElementById('wpErr').style.display      = 'none';
+  document.getElementById('wpResults').style.display  = 'none';
+  document.getElementById('wpProgress').style.display = 'block';
 
-  zone.addEventListener('dragleave', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    zone.classList.remove('drag-over');
-  });
+  var results = [];
+  for (var i = 0; i < wpFiles.length; i++) {
+    var f = wpFiles[i];
+    var statusEl = document.getElementById('wpStatus_' + i);
+    if (statusEl) { statusEl.textContent = 'Converting...'; statusEl.style.color = 'var(--gold)'; }
 
-  zone.addEventListener('drop', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    zone.classList.remove('drag-over');
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!accept.includes(ext)) {
-      alert('Wrong file type. Accepted: ' + accept.join(', '));
-      return;
+    var pct = Math.round((i / wpFiles.length) * 100);
+    document.getElementById('wpProgressBar').style.width  = pct + '%';
+    document.getElementById('wpProgressLabel').textContent =
+      '(' + (i+1) + '/' + wpFiles.length + ') Converting: ' + f.name;
+
+    try {
+      var pdfBlob = await wpConvertOne(f);
+      var url     = URL.createObjectURL(pdfBlob);
+      var pdfName = f.name.replace(/\.[^.]+$/, '') + '.pdf';
+      results.push({ url:url, name:pdfName, ok:true });
+      if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
+      var a = document.createElement('a');
+      a.href = url; a.download = pdfName; a.click();
+    } catch(err) {
+      results.push({ name:f.name, ok:false, err:err.message });
+      if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
     }
-    handler(file);
+  }
+
+  document.getElementById('wpProgressBar').style.width   = '100%';
+  document.getElementById('wpProgressLabel').textContent = '✅ All done! ' + results.filter(function(r){return r.ok;}).length + ' of ' + results.length + ' converted.';
+
+  var resDiv = document.getElementById('wpResults');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML =
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">DOWNLOADS</div>' +
+    results.map(function(r) {
+      if (r.ok) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+               'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+               '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
+               '<a href="' + r.url + '" download="' + r.name + '" ' +
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ Download</a></div>';
+      }
+      return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+             'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+             '❌ ' + r.name + ' — ' + r.err + '</div>';
+    }).join('');
+
+  btn.disabled = false;
+}
+
+async function wpConvertOne(file) {
+  var ext = wpExt(file.name);
+
+  // --- IMAGES → PDF ---
+  if (['jpg','jpeg','png','gif','bmp','webp'].includes(ext)) {
+    return await wpImageToPdf(file);
+  }
+
+  // --- TXT / CSV → PDF ---
+  if (ext === 'txt' || ext === 'csv') {
+    return await wpTextToPdf(file);
+  }
+
+  // --- XLSX / XLS → PDF ---
+  if (ext === 'xlsx' || ext === 'xls') {
+    return await wpExcelToPdf(file);
+  }
+
+  // --- DOCX / DOC → PDF ---
+  if (ext === 'docx' || ext === 'doc') {
+    return await wpWordToPdf(file);
+  }
+
+  throw new Error('Unsupported format: ' + ext);
+}
+
+// Image → PDF
+async function wpImageToPdf(file) {
+  var dataUrl = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsDataURL(file);
   });
+  var img = await new Promise(function(res, rej) {
+    var i = new Image();
+    i.onload  = function() { res(i); };
+    i.onerror = function() { rej(new Error('Image load failed')); };
+    i.src = dataUrl;
+  });
+  var { jsPDF } = window.jspdf;
+  var pdf   = new jsPDF({ orientation: img.width > img.height ? 'l' : 'p', unit:'mm', format:'a4' });
+  var pw    = pdf.internal.pageSize.getWidth();
+  var ph    = pdf.internal.pageSize.getHeight();
+  var ratio = Math.min(pw / img.width, ph / img.height);
+  var iw    = img.width  * ratio;
+  var ih    = img.height * ratio;
+  var x     = (pw - iw) / 2;
+  var y     = (ph - ih) / 2;
+  var fmt   = file.name.match(/\.png$/i) ? 'PNG' : 'JPEG';
+  pdf.addImage(dataUrl, fmt, x, y, iw, ih);
+  return pdf.output('blob');
 }
 
-function handleDroppedPdf(file) {
-  pdfFile = file;
-  document.getElementById('uploadTitle').textContent = file.name;
-  document.getElementById('uploadSub').textContent   =
-    (file.size / 1024).toFixed(0) + ' KB';
-  document.getElementById('uploadZone').classList.add('has-file');
-  document.getElementById('uploadFname').textContent = '';
-  document.getElementById('extractBtn').disabled =
-    !currentUser;
+// Text / CSV → PDF
+async function wpTextToPdf(file) {
+  var text = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsText(file);
+  });
+  var { jsPDF } = window.jspdf;
+  var pdf    = new jsPDF({ unit:'mm', format:'a4' });
+  var margin = 15;
+  var pw     = pdf.internal.pageSize.getWidth()  - margin * 2;
+  var ph     = pdf.internal.pageSize.getHeight() - margin * 2;
+  var lh     = 6;
+  pdf.setFont('helvetica');
+  pdf.setFontSize(10);
+  var lines  = pdf.splitTextToSize(text, pw);
+  var y      = margin;
+  lines.forEach(function(line) {
+    if (y + lh > margin + ph) { pdf.addPage(); y = margin; }
+    pdf.text(line, margin, y);
+    y += lh;
+  });
+  return pdf.output('blob');
 }
 
-function handleDroppedCommit(file) {
-  commitFile = file;
-  document.getElementById('commitTitle').textContent = file.name;
-  document.getElementById('commitSub').textContent   =
-    (file.size / 1024).toFixed(0) + ' KB';
-  document.getElementById('commitZone').classList.add('has-file');
-  document.getElementById('commitBtn').disabled = false;
+// Excel → PDF
+async function wpExcelToPdf(file) {
+  var arrayBuf = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsArrayBuffer(file);
+  });
+  var wb   = XLSX.read(arrayBuf, { type:'array' });
+  var html = '';
+  wb.SheetNames.forEach(function(name) {
+    html += '<h3 style="font-family:Arial;font-size:13px;margin:16px 0 8px">' + name + '</h3>';
+    html += XLSX.utils.sheet_to_html(wb.Sheets[name], { editable: false });
+  });
+
+  var container = document.createElement('div');
+  container.style.cssText =
+    'position:fixed;left:-9999px;top:0;width:1000px;background:#fff;' +
+    'color:#000;font-family:Arial,sans-serif;font-size:11px;padding:30px;box-sizing:border-box';
+  container.innerHTML = '<style>table{border-collapse:collapse;width:100%;margin-bottom:16px}' +
+    'td,th{border:1px solid #ccc;padding:4px 8px;font-size:10px}' +
+    'th{background:#f5f5f5;font-weight:bold}</style>' + html;
+  document.body.appendChild(container);
+
+  var canvas = await html2canvas(container, { scale:1.2, logging:false, background:'#ffffff' });
+  document.body.removeChild(container);
+
+  return await wpCanvasToPdf(canvas);
 }
 
-function handleDroppedWord(file) {
-  wordFile = file;
-  document.getElementById('wordTitle').textContent = file.name;
-  document.getElementById('wordSub').textContent   =
-    (file.size / 1024).toFixed(0) + ' KB';
-  document.getElementById('wordZone').classList.add('has-file');
-  document.getElementById('wordPdfBtn').disabled = false;
+// Word → PDF
+async function wpWordToPdf(file) {
+  var arrayBuf = await new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('Read failed')); };
+    r.readAsArrayBuffer(file);
+  });
+  var result    = await mammoth.convertToHtml({ arrayBuffer: arrayBuf });
+  var container = document.createElement('div');
+  container.style.cssText =
+    'position:fixed;left:-9999px;top:0;width:794px;background:#fff;' +
+    'color:#000;font-family:Arial,sans-serif;font-size:12px;line-height:1.6;' +
+    'padding:60px;box-sizing:border-box';
+  container.innerHTML = result.value;
+  document.body.appendChild(container);
+  var canvas = await html2canvas(container, { scale:1.5, logging:false, background:'#ffffff' });
+  document.body.removeChild(container);
+  return await wpCanvasToPdf(canvas);
 }
 
-// Wire up all zones after DOM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  setupDragDrop('uploadZone', ['pdf'], handleDroppedPdf);
-  setupDragDrop('commitZone', ['pdf'], handleDroppedCommit);
-  setupDragDrop('wordZone',   ['doc','docx'], handleDroppedWord);
-});
+// Canvas → PDF helper (handles multi-page)
+async function wpCanvasToPdf(canvas) {
+  var { jsPDF } = window.jspdf;
+  var pdf   = new jsPDF('p', 'mm', 'a4');
+  var pw    = pdf.internal.pageSize.getWidth();
+  var ph    = pdf.internal.pageSize.getHeight();
+  var imgW  = canvas.width;
+  var imgH  = canvas.height;
+  var scale = pw / (imgW * 0.264583);
+  var totalH= imgH * scale * 0.264583;
+  var pages = Math.ceil(totalH / ph);
+
+  for (var p = 0; p < pages; p++) {
+    if (p > 0) pdf.addPage();
+    var srcY   = p * (ph / scale / 0.264583);
+    var sliceH = Math.min(ph / scale / 0.264583, imgH - srcY);
+    var slice  = document.createElement('canvas');
+    slice.width  = imgW;
+    slice.height = Math.ceil(sliceH);
+    slice.getContext('2d').drawImage(canvas, 0, srcY, imgW, sliceH, 0, 0, imgW, sliceH);
+    pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, sliceH * scale * 0.264583);
+  }
+  return pdf.output('blob');
+}
+
+
+// ============================================
+// PDF TO WORD — 100% CLIENT SIDE
+// Uses PDF.js (extract text) + docx.js (build .docx)
+// Nothing sent to server. Completely free.
+// ============================================
+var pwFiles = [];
+
+// Set PDF.js worker
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+function pwDragOver(e) {
+  e.preventDefault();
+  document.getElementById('pwDropZone').style.borderColor = 'var(--gold)';
+  document.getElementById('pwDropZone').style.background  = 'var(--gold3)';
+}
+function pwDragLeave(e) {
+  document.getElementById('pwDropZone').style.borderColor = 'rgba(201,168,76,.3)';
+  document.getElementById('pwDropZone').style.background  = '';
+}
+function pwDrop(e) {
+  e.preventDefault();
+  pwDragLeave(e);
+  var files = Array.from(e.dataTransfer.files).filter(function(f) {
+    return f.name.match(/\.pdf$/i);
+  });
+  if (files.length) pwAddFiles(files);
+}
+function pwFilesSelected(fileList) {
+  pwAddFiles(Array.from(fileList));
+  document.getElementById('pwInput').value = '';
+}
+function pwAddFiles(files) {
+  files.forEach(function(f) {
+    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+      pwFiles.push(f);
+    }
+  });
+  pwRenderList();
+}
+function pwRenderList() {
+  var list = document.getElementById('pwFileList');
+  if (!pwFiles.length) { list.style.display = 'none'; return; }
+  list.style.display = 'block';
+  list.innerHTML = pwFiles.map(function(f, i) {
+    return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+           'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+           '<span style="font-size:12px;color:var(--white)">📋 ' + f.name + '</span>' +
+           '<span style="display:flex;align-items:center;gap:12px">' +
+           '<span style="font-size:11px;color:var(--muted)">' +
+           (f.size/1024).toFixed(0) + ' KB</span>' +
+           '<span id="pwStatus_' + i + '" style="font-size:11px;color:var(--muted)">Pending</span>' +
+           '<button onclick="pwRemove(' + i + ')" style="background:none;border:none;' +
+           'color:var(--muted);cursor:pointer;font-size:14px;padding:0">✕</button>' +
+           '</span></div>';
+  }).join('');
+  document.getElementById('pwConvertBtn').disabled = false;
+}
+function pwRemove(i) {
+  pwFiles.splice(i, 1);
+  pwRenderList();
+  if (!pwFiles.length) document.getElementById('pwConvertBtn').disabled = true;
+}
+function pwClearAll() {
+  pwFiles = [];
+  pwRenderList();
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'none';
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwConvertBtn').disabled    = true;
+}
+
+async function pwConvertAll() {
+  if (!pwFiles.length) return;
+
+  // Ensure PDF.js worker is set
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+
+  var btn = document.getElementById('pwConvertBtn');
+  btn.disabled = true;
+  document.getElementById('pwErr').style.display      = 'none';
+  document.getElementById('pwResults').style.display  = 'none';
+  document.getElementById('pwProgress').style.display = 'block';
+
+  var results = [];
+  for (var i = 0; i < pwFiles.length; i++) {
+    var f = pwFiles[i];
+    var statusEl = document.getElementById('pwStatus_' + i);
+    if (statusEl) { statusEl.textContent = 'Converting...'; statusEl.style.color = 'var(--gold)'; }
+
+    document.getElementById('pwProgressLabel').textContent =
+      'Converting ' + (i+1) + ' of ' + pwFiles.length + ': ' + f.name;
+    document.getElementById('pwProgressBar').style.width =
+      Math.round((i / pwFiles.length) * 100) + '%';
+
+    try {
+      var docxBlob = await pwConvertOne(f);
+      var url      = URL.createObjectURL(docxBlob);
+      var docName  = f.name.replace(/\.pdf$/i, '') + '.docx';
+      results.push({ url: url, name: docName, ok: true });
+      if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
+
+      // Auto-download
+      var a = document.createElement('a');
+      a.href     = url;
+      a.download = docName;
+      a.click();
+    } catch(err) {
+      results.push({ name: f.name, ok: false, err: err.message });
+      if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
+    }
+  }
+
+  document.getElementById('pwProgressBar').style.width = '100%';
+  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+
+  var resDiv = document.getElementById('pwResults');
+  resDiv.style.display = 'block';
+  resDiv.innerHTML =
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
+    results.map(function(r) {
+      if (r.ok) {
+        return '<div style="display:flex;align-items:center;justify-content:space-between;' +
+               'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
+               '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
+               '<a href="' + r.url + '" download="' + r.name + '" ' +
+               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
+               'Download again</a></div>';
+      } else {
+        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+               '❌ ' + r.name + ' — ' + r.err + '</div>';
+      }
+    }).join('');
+
+  btn.disabled = false;
+}
+
+async function pwConvertOne(file) {
+  // Step 1: Read PDF as ArrayBuffer
+  var arrayBuf = await new Promise(function(res, rej) {
+    var reader = new FileReader();
+    reader.onload  = function(e) { res(e.target.result); };
+    reader.onerror = function()  { rej(new Error('File read failed')); };
+    reader.readAsArrayBuffer(file);
+  });
+
+  // Step 2: PDF.js — extract text from all pages
+  var pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+  var paragraphs = [];
+
+  for (var p = 1; p <= pdfDoc.numPages; p++) {
+    var page    = await pdfDoc.getPage(p);
+    var txtContent = await page.getTextContent();
+
+    // Group items into lines by Y position
+    var lines   = {};
+    txtContent.items.forEach(function(item) {
+      var y = Math.round(item.transform[5]);
+      if (!lines[y]) lines[y] = [];
+      lines[y].push(item.str);
+    });
+
+    // Sort lines top-to-bottom (descending Y in PDF coords)
+    var sortedYs = Object.keys(lines).map(Number).sort(function(a,b){ return b - a; });
+    sortedYs.forEach(function(y) {
+      var lineText = lines[y].join(' ').trim();
+      if (lineText) paragraphs.push(lineText);
+    });
+
+    // Add page break between pages
+    if (p < pdfDoc.numPages) paragraphs.push('');
+  }
+
+  // Step 3: docx.js — build .docx from extracted text
+  var { Document, Paragraph, TextRun, PageBreak, HeadingLevel } = docx;
+
+  var docParagraphs = paragraphs.map(function(text) {
+    if (text === '') {
+      // Empty = page break or spacing
+      return new Paragraph({ children: [new TextRun('')], spacing: { after: 200 } });
+    }
+    return new Paragraph({
+      children: [new TextRun({ text: text, size: 24, font: 'Arial' })],
+      spacing : { after: 120 }
+    });
+  });
+
+  var document = new Document({
+    sections: [{
+      properties: {},
+      children  : docParagraphs
+    }]
+  });
+
+  // Step 4: Pack to blob
+  var docxBlob = await docx.Packer.toBlob(document);
+  return docxBlob;
+}
 
 </script>
-
-
-<!-- FILE NO MODAL -->
-<div id="fileNoModal" style="
-  display:none;position:fixed;inset:0;
-  background:rgba(6,13,31,.85);
-  z-index:999;
-  align-items:center;justify-content:center">
-  <div style="
-    background:var(--navy2);border:1px solid var(--border);
-    border-radius:8px;padding:36px;width:340px;
-    box-shadow:0 20px 60px rgba(0,0,0,.5)">
-    <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;
-      color:var(--gold);margin-bottom:20px;text-align:center">
-      Download XML
-    </div>
-    <label class="form-label">File No. (for filename)</label>
-    <input class="form-input" type="text" id="xmlFileNo"
-      placeholder="e.g. 2026-001"
-      style="margin-bottom:20px"
-      onkeydown="if(event.key==='Enter')confirmXmlDownload()">
-    <div style="display:flex;gap:12px">
-      <button onclick="document.getElementById('fileNoModal').style.display='none'"
-        style="flex:1;padding:12px;background:transparent;
-          border:1px solid var(--border);border-radius:4px;
-          color:var(--muted);cursor:pointer;font-size:11px;letter-spacing:2px;
-          font-family:Montserrat,sans-serif;text-transform:uppercase">
-        Cancel
-      </button>
-      <button onclick="confirmXmlDownload()"
-        style="flex:1;padding:12px;background:var(--gold);
-          border:none;border-radius:4px;
-          color:var(--navy);cursor:pointer;font-size:11px;letter-spacing:2px;
-          font-family:Montserrat,sans-serif;font-weight:600;text-transform:uppercase">
-        Download
-      </button>
-    </div>
-  </div>
-</div>
 
 </body>
 </html>
