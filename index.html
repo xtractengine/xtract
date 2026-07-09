@@ -2915,12 +2915,12 @@ async function pwConvertOne(file) {
       Contact
     </button>
     <button class="nav-link"
-      onclick="showPage('wordPdf')" id="navWordPdf">
-      Word → PDF
-    </button>
-    <button class="nav-link"
       onclick="showPage('settings')" id="navSettings">
       Settings
+    </button>
+    <button class="nav-link"
+      onclick="showPage('wordPdf')" id="navWordPdf">
+      Converter
     </button>
   </div>
 
@@ -3965,7 +3965,8 @@ function showPage(name) {
     packages: 'navPkg',
     faq     : 'navFaq',
     contact : 'navContact',
-    settings: 'navSettings'
+    settings: 'navSettings',
+    wordPdf : 'navWordPdf'
   };
   document.querySelectorAll('.page')
     .forEach(p => p.classList.remove('active'));
