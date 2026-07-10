@@ -2903,24 +2903,28 @@ async function pwConvertOne(file) {
       Home
     </button>
     <button class="nav-link"
-      onclick="showPage('packages')" id="navPkg">
-      Packages
-    </button>
-    <button class="nav-link"
-      onclick="showPage('faq')" id="navFaq">
-      FAQ
-    </button>
-    <button class="nav-link"
-      onclick="showPage('contact')" id="navContact">
-      Contact
+      onclick="showPage('wordPdf')" id="navWordPdf">
+      Converter
     </button>
     <button class="nav-link"
       onclick="showPage('settings')" id="navSettings">
       Settings
     </button>
     <button class="nav-link"
-      onclick="showPage('wordPdf')" id="navWordPdf">
-      Converter
+      onclick="showPage('faq')" id="navFaq">
+      FAQ
+    </button>
+    <button class="nav-link"
+      onclick="showPage('packages')" id="navPkg">
+      Packages
+    </button>
+    <button class="nav-link"
+      onclick="showPage('contact')" id="navContact">
+      Contact
+    </button>
+    <button class="nav-link"
+      onclick="showPage('privacy')" id="navPrivacy">
+      Privacy Policy
     </button>
   </div>
 
@@ -3035,6 +3039,24 @@ async function pwConvertOne(file) {
         <div class="excel-badge">Optional</div>
       </div>
 
+      <!-- Terms checkbox -->
+      <div style="display:flex;align-items:flex-start;gap:10px;
+                  margin-bottom:14px;padding:12px 16px;
+                  background:var(--navy);border-radius:4px;
+                  border:1px solid var(--border)">
+        <input type="checkbox" id="termsChk"
+          onchange="loginChk()"
+          style="margin-top:2px;accent-color:var(--gold);cursor:pointer;flex-shrink:0">
+        <label for="termsChk"
+          style="font-size:11px;color:var(--muted);line-height:1.6;cursor:pointer">
+          I agree to the
+          <a onclick="showPage('privacy')" href="javascript:void(0)"
+            style="color:var(--gold);text-decoration:none">Terms of Service</a>
+          and understand I must cross-check all extracted data on the display screen
+          before using the XML file in RamQuest.
+        </label>
+      </div>
+
       <div class="action-row">
         <button class="btn-extract" id="extractBtn"
           onclick="doExtract()" disabled>
@@ -3133,6 +3155,21 @@ async function pwConvertOne(file) {
           style="display:none">
           Download XML
         </button>
+      </div>
+
+      <!-- Disclaimer banner — shown after XML is ready -->
+      <div id="xmlDisclaimer" style="display:none;margin-top:14px;
+           padding:12px 16px;background:rgba(201,168,76,.08);
+           border:1px solid rgba(201,168,76,.3);border-radius:4px">
+        <div style="font-size:11px;color:var(--gold);letter-spacing:2px;
+                    font-weight:600;margin-bottom:4px">
+          &#9888; VERIFY BEFORE IMPORTING
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6">
+          Cross-check all extracted data on the display screen above before
+          importing this XML into RamQuest. This tool extracts text only —
+          all figures and dates must be verified by a licensed title agent.
+        </div>
       </div>
 
       <div class="status-bar" id="commitStatus"
@@ -3548,6 +3585,8 @@ async function pwConvertOne(file) {
           <li>Remember Me login</li>
           <li>Auto Excel rows</li>
           <li>Custom File No.</li>
+          <li>RamQuest XML generation</li>
+          <li>Word &amp; PDF converter</li>
         </ul>
         <button class="btn-plan"
           onclick="showPage('contact')">
@@ -3565,6 +3604,8 @@ async function pwConvertOne(file) {
         <div class="plan-limit">150 Contracts / mo</div>
         <ul class="plan-features">
           <li>All Starter features</li>
+          <li>RamQuest XML generation</li>
+          <li>Word &amp; PDF converter</li>
           <li>Custom columns</li>
           <li>Priority support</li>
           <li>Sheet integration</li>
@@ -3584,6 +3625,8 @@ async function pwConvertOne(file) {
         <div class="plan-limit">500 Contracts / mo</div>
         <ul class="plan-features">
           <li>All Pro features</li>
+          <li>RamQuest XML generation</li>
+          <li>Word &amp; PDF converter</li>
           <li>Team access</li>
           <li>Bulk processing</li>
           <li>Dedicated support</li>
@@ -3871,6 +3914,12 @@ window.onload = () => {
 // LOGIN
 // ============================================
 function loginChk() {
+  // Also update extractBtn based on termsChk
+  const chkEl = document.getElementById('termsChk');
+  const extBtn = document.getElementById('extractBtn');
+  if (extBtn && chkEl) {
+    if (!chkEl.checked) extBtn.disabled = true;
+  }
   const n = document.getElementById('loginName').value.trim();
   const p = document.getElementById('loginPw').value.trim();
   document.getElementById('loginBtn').disabled = !(n && p);
@@ -3958,7 +4007,8 @@ function showPage(name) {
     faq     : 'faqPage',
     contact : 'contactPage',
     settings: 'settingsPage',
-    wordPdf : 'wordPdfPage'
+    wordPdf : 'wordPdfPage',
+    privacy : 'privacyPage'
   };
   const navMap = {
     tool    : 'navHome',
@@ -3966,7 +4016,8 @@ function showPage(name) {
     faq     : 'navFaq',
     contact : 'navContact',
     settings: 'navSettings',
-    wordPdf : 'navWordPdf'
+    wordPdf : 'navWordPdf',
+    privacy : 'navPrivacy'
   };
   document.querySelectorAll('.page')
     .forEach(p => p.classList.remove('active'));
@@ -3998,8 +4049,10 @@ function onFile(input) {
 }
 
 function checkReady() {
+  const chk = document.getElementById('termsChk');
+  const agreed = chk ? chk.checked : false;
   document.getElementById('extractBtn')
-    .disabled = !pdfFile;
+    .disabled = !pdfFile || !agreed;
 }
 
 // ============================================
@@ -4180,6 +4233,8 @@ async function doCommitment() {
     document.getElementById('commitWrap')
       .style.display = 'block';
     document.getElementById('xmlBtn')
+      .style.display = 'block';
+    document.getElementById('xmlDisclaimer')
       .style.display = 'block';
     document.getElementById('commitBtn')
       .disabled = false;
@@ -4968,6 +5023,62 @@ async function pwConvertOne(file) {
 }
 
 </script>
+
+
+<!-- ============================================
+     PRIVACY POLICY PAGE
+     ============================================ -->
+<div id="privacyPage" class="page">
+  <div class="tool-wrap" style="max-width:800px">
+    <div class="tool-card">
+
+      <div style="text-align:center;margin-bottom:32px">
+        <div style="font-size:11px;letter-spacing:4px;color:var(--gold);margin-bottom:8px">LEGAL</div>
+        <h2 style="font-size:22px;color:var(--white);font-weight:600;margin-bottom:4px">Privacy Policy &amp; Terms of Service</h2>
+        <p style="font-size:11px;color:var(--muted);letter-spacing:2px">LAST UPDATED: JULY 2026</p>
+      </div>
+
+      <div style="font-size:13px;color:#c8c0a8;line-height:1.9">
+
+        <div style="background:var(--navy);border-left:3px solid var(--gold);padding:16px 20px;border-radius:0 4px 4px 0;margin-bottom:28px;font-size:12px;color:var(--muted)">
+          By using Xtract, you agree to these data practices and limitations of liability. Please read carefully before uploading any documents.
+        </div>
+
+        <h3 style="font-size:13px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:12px">1. No Data Retention Policy</h3>
+        <p style="margin-bottom:8px">The Service is built entirely on a <strong style="color:var(--white)">Stateless, Zero-Retention Pipeline</strong>. We are committed to data privacy and compliance by design:</p>
+        <ul style="margin:0 0 20px 20px;list-style:disc">
+          <li style="margin-bottom:6px"><strong style="color:var(--white)">No Storage:</strong> We do not maintain databases to store, log, cache, or archive uploaded Word documents, generated PDFs, or generated RamQuest XML files.</li>
+          <li style="margin-bottom:6px"><strong style="color:var(--white)">In-Memory Processing:</strong> All document parsing occurs strictly in temporary server memory.</li>
+          <li style="margin-bottom:6px"><strong style="color:var(--white)">Instant Deletion:</strong> All uploaded files and translated outputs are completely and permanently purged from our servers the exact moment the XML payload is sent to your browser or within sixty (60) seconds of processing.</li>
+        </ul>
+
+        <h3 style="font-size:13px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:12px">2. Third-Party Data Processing (Anthropic Claude API)</h3>
+        <p style="margin-bottom:8px">To provide instant document extraction, the Service utilizes the <strong style="color:var(--white)">Anthropic Claude API</strong>.</p>
+        <ul style="margin:0 0 20px 20px;list-style:disc">
+          <li style="margin-bottom:6px">Data sent via this pipeline is protected under Anthropic's commercial enterprise terms.</li>
+          <li style="margin-bottom:6px">Your data is encrypted in transit using industry-standard <strong style="color:var(--white)">TLS 1.3 encryption</strong>.</li>
+          <li style="margin-bottom:6px"><strong style="color:var(--white)">Important:</strong> Under Anthropic's enterprise API policy, your data and documents are not stored by Anthropic, are not used to train AI models, and are processed completely confidentially.</li>
+        </ul>
+
+        <h3 style="font-size:13px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:12px">3. Absolute Limitation of Liability &amp; Mandatory Cross-Checking</h3>
+        <p style="margin-bottom:8px">This tool is strictly a <strong style="color:var(--white)">text extraction and formatting utility</strong>.</p>
+        <ul style="margin:0 0 20px 20px;list-style:disc">
+          <li style="margin-bottom:6px"><strong style="color:var(--white)">No Financial Calculations:</strong> The Service does not perform, verify, recalculate, or mathematically audit any financial figures, closing costs, title premiums, taxes, or adjustments. It simply extracts text and figures exactly as they appear in your uploaded document.</li>
+          <li style="margin-bottom:6px"><strong style="color:var(--white)">Mandatory Human Verification:</strong> The User bears sole responsibility for verifying all data. You must thoroughly cross-check all data on the web display screen and within your RamQuest production system before taking any final action, issuing a final commitment, or closing a transaction.</li>
+          <li style="margin-bottom:6px"><strong style="color:var(--white)">Indemnification:</strong> The Service, its developers, and its parent entities shall not be held liable for any financial losses, compliance errors, underwriting mistakes, manual transcription inaccuracies, or claims arising from the use of the generated XML. You use this tool entirely at your own risk.</li>
+        </ul>
+
+        <h3 style="font-size:13px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:12px">4. Security &amp; Compliance Status</h3>
+        <p style="margin-bottom:20px">The Service enforces strict in-transit encryption (<strong style="color:var(--white)">AES-256 / TLS 1.3</strong>) to protect data moving between your browser and our processing pipeline. Because our platform is entirely stateless and does not act as a data repository, we maintain a minimized risk profile. The Service is actively structuring its operational framework to align with <strong style="color:var(--white)">ALTA Best Practices</strong> and future independent audits.</p>
+
+        <div style="border-top:1px solid var(--border);padding-top:20px;margin-top:8px;font-size:11px;color:var(--muted);text-align:center;letter-spacing:1px">
+          &copy; 2026 Xtract Contract Intelligence &nbsp;&bull;&nbsp; All Rights Reserved
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
