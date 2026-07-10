@@ -813,7 +813,109 @@ input[type=file]{display:none}
 }
 </style>
   <!-- Universal to PDF converter libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+// ============================================
+// FILE VALIDATION
+// ============================================
+function showFileError(icon, msg) {
+  document.getElementById('fileValidIcon').textContent = icon;
+  document.getElementById('fileValidMsg').innerHTML    = msg;
+  document.getElementById('fileValidModal').style.display = 'flex';
+}
+
+// Count PDF pages using PDF.js
+async function getPdfPageCount(file) {
+  if (typeof pdfjsLib === 'undefined') return null;
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  return pdf.numPages;
+}
+
+// Extract text from first 3 pages of PDF
+async function getPdfText(file, maxPages) {
+  if (typeof pdfjsLib === 'undefined') return '';
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf  = await file.arrayBuffer();
+  const pdf  = await pdfjsLib.getDocument({data: buf}).promise;
+  let   text = '';
+  const pages = Math.min(maxPages || 3, pdf.numPages);
+  for (let i = 1; i <= pages; i++) {
+    const page    = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(function(x){ return x.str; }).join(' ') + ' ';
+  }
+  return text.toLowerCase();
+}
+
+// Validate Contract PDF
+async function validateContractPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The contract extractor only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Page count must be 8–12 pages
+  const pages = await getPdfPageCount(file);
+  if (pages !== null) {
+    if (pages < 8) {
+      showFileError('📋',
+        'This document has only <strong>' + pages + ' page' + (pages===1?'':'s') + '</strong>.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'Please check you have uploaded the correct document.');
+      return false;
+    }
+    if (pages > 12) {
+      showFileError('📋',
+        'This document has <strong>' + pages + ' pages</strong>, which exceeds the expected length.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'If this is a contract with addenda, please upload the main contract only.');
+      return false;
+    }
+  }
+
+  // 3. Must contain "residential" or "commercial"
+  const text = await getPdfText(file, 3);
+  const hasResidential = text.includes('residential');
+  const hasCommercial  = text.includes('commercial');
+  if (!hasResidential && !hasCommercial) {
+    showFileError('🏠',
+      'This document does not appear to be a <strong>Residential or Commercial contract</strong>.<br><br>' +
+      'The words "Residential" or "Commercial" were not found in this PDF. ' +
+      'Please upload a valid Texas real estate purchase contract.');
+    return false;
+  }
+
+  return true;
+}
+
+// Validate Commitment PDF
+async function validateCommitmentPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The XML generator only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Must contain "commitment" keyword
+  const text = await getPdfText(file, 4);
+  if (!text.includes('commitment')) {
+    showFileError('📑',
+      'This document does not appear to be a <strong>Title Commitment</strong>.<br><br>' +
+      'The word "Commitment" was not found in this PDF. ' +
+      'Please upload a Texas Title Commitment (Form T-7) to generate RamQuest XML.');
+    return false;
+  }
+
+  return true;
+}
+
+</script>
     <!-- Word/PDF converter: client-side libraries (free, open source) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js">
 // ============================================
@@ -851,8 +953,44 @@ function pwFilesSelected(fileList) {
   document.getElementById('pwInput').value = '';
 }
 function pwAddFiles(files) {
+  var PW_MAX_FILES    = 10;
+  var PW_MAX_PER_MB   = 20;
+  var PW_MAX_TOTAL_MB = 50;
+
   files.forEach(function(f) {
-    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+    // Format check
+    if (!f.name.match(/\.pdf$/i)) {
+      showFileError('📄',
+        '<strong>' + f.name + '</strong> is not a PDF file.<br><br>' +
+        'The PDF to Word converter only accepts <strong>.pdf files</strong>.<br>' +
+        'Please upload a valid PDF document.');
+      return;
+    }
+    // File count limit
+    if (pwFiles.length >= PW_MAX_FILES) {
+      showFileError('📋',
+        'Maximum <strong>' + PW_MAX_FILES + ' files</strong> allowed at once.<br><br>' +
+        'Please convert your current batch first, then upload more files.');
+      return;
+    }
+    // Per-file size limit
+    var perMB = f.size / 1024 / 1024;
+    if (perMB > PW_MAX_PER_MB) {
+      showFileError('⚠️',
+        '<strong>' + f.name + '</strong> is <strong>' + perMB.toFixed(1) + ' MB</strong>.<br><br>' +
+        'Maximum file size is <strong>' + PW_MAX_PER_MB + ' MB</strong> per file.<br>' +
+        'Please compress or split the PDF before uploading.');
+      return;
+    }
+    // Total size limit
+    var totalMB = pwFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
+    if (totalMB + perMB > PW_MAX_TOTAL_MB) {
+      showFileError('⚠️',
+        'Adding <strong>' + f.name + '</strong> would exceed the <strong>' + PW_MAX_TOTAL_MB + ' MB</strong> total limit.<br><br>' +
+        'Current batch: ' + totalMB.toFixed(1) + ' MB. Please convert current files first.');
+      return;
+    }
+    if (!pwFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
       pwFiles.push(f);
     }
   });
@@ -935,11 +1073,32 @@ async function pwConvertAll() {
   }
 
   document.getElementById('pwProgressBar').style.width = '100%';
-  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+  var okCount2 = results.filter(function(r){return r.ok;}).length;
+  document.getElementById('pwProgressLabel').textContent =
+    '✅ Done! ' + okCount2 + ' of ' + results.length + ' converted.';
 
-  var resDiv = document.getElementById('pwResults');
-  resDiv.style.display = 'block';
-  resDiv.innerHTML =
+  // ZIP if multiple
+  if (okCount2 > 1 && typeof JSZip !== 'undefined') {
+    document.getElementById('pwProgressLabel').textContent = 'Creating ZIP...';
+    var zip2    = new JSZip();
+    for (var ri2 = 0; ri2 < results.length; ri2++) {
+      if (!results[ri2].ok) continue;
+      var resp2   = await fetch(results[ri2].url);
+      var arrBuf2 = await resp2.arrayBuffer();
+      zip2.file(results[ri2].name, arrBuf2);
+    }
+    var zipBlob2 = await zip2.generateAsync({type:'blob'});
+    var zipUrl2  = URL.createObjectURL(zipBlob2);
+    var za2      = document.createElement('a');
+    za2.href     = zipUrl2;
+    za2.download = 'converted_docx.zip';
+    za2.click();
+    document.getElementById('pwProgressLabel').textContent = '✅ ZIP downloaded!';
+  }
+
+  var resDiv2 = document.getElementById('pwResults');
+  resDiv2.style.display = 'block';
+  resDiv2.innerHTML =
     '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
     results.map(function(r) {
       if (r.ok) {
@@ -947,13 +1106,11 @@ async function pwConvertAll() {
                'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
                '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
                '<a href="' + r.url + '" download="' + r.name + '" ' +
-               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
-               'Download again</a></div>';
-      } else {
-        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
-               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
-               '❌ ' + r.name + ' — ' + r.err + '</div>';
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ DOCX</a></div>';
       }
+      return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+             'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+             '❌ ' + r.name + ' — ' + r.err + '</div>';
     }).join('');
 
   btn.disabled = false;
@@ -1021,8 +1178,110 @@ async function pwConvertOne(file) {
   return docxBlob;
 }
 
+
+// ============================================
+// FILE VALIDATION
+// ============================================
+function showFileError(icon, msg) {
+  document.getElementById('fileValidIcon').textContent = icon;
+  document.getElementById('fileValidMsg').innerHTML    = msg;
+  document.getElementById('fileValidModal').style.display = 'flex';
+}
+
+// Count PDF pages using PDF.js
+async function getPdfPageCount(file) {
+  if (typeof pdfjsLib === 'undefined') return null;
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  return pdf.numPages;
+}
+
+// Extract text from first 3 pages of PDF
+async function getPdfText(file, maxPages) {
+  if (typeof pdfjsLib === 'undefined') return '';
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf  = await file.arrayBuffer();
+  const pdf  = await pdfjsLib.getDocument({data: buf}).promise;
+  let   text = '';
+  const pages = Math.min(maxPages || 3, pdf.numPages);
+  for (let i = 1; i <= pages; i++) {
+    const page    = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(function(x){ return x.str; }).join(' ') + ' ';
+  }
+  return text.toLowerCase();
+}
+
+// Validate Contract PDF
+async function validateContractPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The contract extractor only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Page count must be 8–12 pages
+  const pages = await getPdfPageCount(file);
+  if (pages !== null) {
+    if (pages < 8) {
+      showFileError('📋',
+        'This document has only <strong>' + pages + ' page' + (pages===1?'':'s') + '</strong>.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'Please check you have uploaded the correct document.');
+      return false;
+    }
+    if (pages > 12) {
+      showFileError('📋',
+        'This document has <strong>' + pages + ' pages</strong>, which exceeds the expected length.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'If this is a contract with addenda, please upload the main contract only.');
+      return false;
+    }
+  }
+
+  // 3. Must contain "residential" or "commercial"
+  const text = await getPdfText(file, 3);
+  const hasResidential = text.includes('residential');
+  const hasCommercial  = text.includes('commercial');
+  if (!hasResidential && !hasCommercial) {
+    showFileError('🏠',
+      'This document does not appear to be a <strong>Residential or Commercial contract</strong>.<br><br>' +
+      'The words "Residential" or "Commercial" were not found in this PDF. ' +
+      'Please upload a valid Texas real estate purchase contract.');
+    return false;
+  }
+
+  return true;
+}
+
+// Validate Commitment PDF
+async function validateCommitmentPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The XML generator only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Must contain "commitment" keyword
+  const text = await getPdfText(file, 4);
+  if (!text.includes('commitment')) {
+    showFileError('📑',
+      'This document does not appear to be a <strong>Title Commitment</strong>.<br><br>' +
+      'The word "Commitment" was not found in this PDF. ' +
+      'Please upload a Texas Title Commitment (Form T-7) to generate RamQuest XML.');
+    return false;
+  }
+
+  return true;
+}
+
 </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.umd.min.js">
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/docx/7.8.2/docx.umd.min.js"></script>
+  <script>
 // ============================================
 // PDF TO WORD — 100% CLIENT SIDE
 // Uses PDF.js (extract text) + docx.js (build .docx)
@@ -1058,8 +1317,44 @@ function pwFilesSelected(fileList) {
   document.getElementById('pwInput').value = '';
 }
 function pwAddFiles(files) {
+  var PW_MAX_FILES    = 10;
+  var PW_MAX_PER_MB   = 20;
+  var PW_MAX_TOTAL_MB = 50;
+
   files.forEach(function(f) {
-    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+    // Format check
+    if (!f.name.match(/\.pdf$/i)) {
+      showFileError('📄',
+        '<strong>' + f.name + '</strong> is not a PDF file.<br><br>' +
+        'The PDF to Word converter only accepts <strong>.pdf files</strong>.<br>' +
+        'Please upload a valid PDF document.');
+      return;
+    }
+    // File count limit
+    if (pwFiles.length >= PW_MAX_FILES) {
+      showFileError('📋',
+        'Maximum <strong>' + PW_MAX_FILES + ' files</strong> allowed at once.<br><br>' +
+        'Please convert your current batch first, then upload more files.');
+      return;
+    }
+    // Per-file size limit
+    var perMB = f.size / 1024 / 1024;
+    if (perMB > PW_MAX_PER_MB) {
+      showFileError('⚠️',
+        '<strong>' + f.name + '</strong> is <strong>' + perMB.toFixed(1) + ' MB</strong>.<br><br>' +
+        'Maximum file size is <strong>' + PW_MAX_PER_MB + ' MB</strong> per file.<br>' +
+        'Please compress or split the PDF before uploading.');
+      return;
+    }
+    // Total size limit
+    var totalMB = pwFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
+    if (totalMB + perMB > PW_MAX_TOTAL_MB) {
+      showFileError('⚠️',
+        'Adding <strong>' + f.name + '</strong> would exceed the <strong>' + PW_MAX_TOTAL_MB + ' MB</strong> total limit.<br><br>' +
+        'Current batch: ' + totalMB.toFixed(1) + ' MB. Please convert current files first.');
+      return;
+    }
+    if (!pwFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
       pwFiles.push(f);
     }
   });
@@ -1142,11 +1437,32 @@ async function pwConvertAll() {
   }
 
   document.getElementById('pwProgressBar').style.width = '100%';
-  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+  var okCount2 = results.filter(function(r){return r.ok;}).length;
+  document.getElementById('pwProgressLabel').textContent =
+    '✅ Done! ' + okCount2 + ' of ' + results.length + ' converted.';
 
-  var resDiv = document.getElementById('pwResults');
-  resDiv.style.display = 'block';
-  resDiv.innerHTML =
+  // ZIP if multiple
+  if (okCount2 > 1 && typeof JSZip !== 'undefined') {
+    document.getElementById('pwProgressLabel').textContent = 'Creating ZIP...';
+    var zip2    = new JSZip();
+    for (var ri2 = 0; ri2 < results.length; ri2++) {
+      if (!results[ri2].ok) continue;
+      var resp2   = await fetch(results[ri2].url);
+      var arrBuf2 = await resp2.arrayBuffer();
+      zip2.file(results[ri2].name, arrBuf2);
+    }
+    var zipBlob2 = await zip2.generateAsync({type:'blob'});
+    var zipUrl2  = URL.createObjectURL(zipBlob2);
+    var za2      = document.createElement('a');
+    za2.href     = zipUrl2;
+    za2.download = 'converted_docx.zip';
+    za2.click();
+    document.getElementById('pwProgressLabel').textContent = '✅ ZIP downloaded!';
+  }
+
+  var resDiv2 = document.getElementById('pwResults');
+  resDiv2.style.display = 'block';
+  resDiv2.innerHTML =
     '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
     results.map(function(r) {
       if (r.ok) {
@@ -1154,13 +1470,11 @@ async function pwConvertAll() {
                'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
                '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
                '<a href="' + r.url + '" download="' + r.name + '" ' +
-               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
-               'Download again</a></div>';
-      } else {
-        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
-               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
-               '❌ ' + r.name + ' — ' + r.err + '</div>';
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ DOCX</a></div>';
       }
+      return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+             'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+             '❌ ' + r.name + ' — ' + r.err + '</div>';
     }).join('');
 
   btn.disabled = false;
@@ -1228,9 +1542,110 @@ async function pwConvertOne(file) {
   return docxBlob;
 }
 
+
+// ============================================
+// FILE VALIDATION
+// ============================================
+function showFileError(icon, msg) {
+  document.getElementById('fileValidIcon').textContent = icon;
+  document.getElementById('fileValidMsg').innerHTML    = msg;
+  document.getElementById('fileValidModal').style.display = 'flex';
+}
+
+// Count PDF pages using PDF.js
+async function getPdfPageCount(file) {
+  if (typeof pdfjsLib === 'undefined') return null;
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  return pdf.numPages;
+}
+
+// Extract text from first 3 pages of PDF
+async function getPdfText(file, maxPages) {
+  if (typeof pdfjsLib === 'undefined') return '';
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf  = await file.arrayBuffer();
+  const pdf  = await pdfjsLib.getDocument({data: buf}).promise;
+  let   text = '';
+  const pages = Math.min(maxPages || 3, pdf.numPages);
+  for (let i = 1; i <= pages; i++) {
+    const page    = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(function(x){ return x.str; }).join(' ') + ' ';
+  }
+  return text.toLowerCase();
+}
+
+// Validate Contract PDF
+async function validateContractPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The contract extractor only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Page count must be 8–12 pages
+  const pages = await getPdfPageCount(file);
+  if (pages !== null) {
+    if (pages < 8) {
+      showFileError('📋',
+        'This document has only <strong>' + pages + ' page' + (pages===1?'':'s') + '</strong>.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'Please check you have uploaded the correct document.');
+      return false;
+    }
+    if (pages > 12) {
+      showFileError('📋',
+        'This document has <strong>' + pages + ' pages</strong>, which exceeds the expected length.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'If this is a contract with addenda, please upload the main contract only.');
+      return false;
+    }
+  }
+
+  // 3. Must contain "residential" or "commercial"
+  const text = await getPdfText(file, 3);
+  const hasResidential = text.includes('residential');
+  const hasCommercial  = text.includes('commercial');
+  if (!hasResidential && !hasCommercial) {
+    showFileError('🏠',
+      'This document does not appear to be a <strong>Residential or Commercial contract</strong>.<br><br>' +
+      'The words "Residential" or "Commercial" were not found in this PDF. ' +
+      'Please upload a valid Texas real estate purchase contract.');
+    return false;
+  }
+
+  return true;
+}
+
+// Validate Commitment PDF
+async function validateCommitmentPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The XML generator only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Must contain "commitment" keyword
+  const text = await getPdfText(file, 4);
+  if (!text.includes('commitment')) {
+    showFileError('📑',
+      'This document does not appear to be a <strong>Title Commitment</strong>.<br><br>' +
+      'The word "Commitment" was not found in this PDF. ' +
+      'Please upload a Texas Title Commitment (Form T-7) to generate RamQuest XML.');
+    return false;
+  }
+
+  return true;
+}
+
 </script>
     <!-- Word to PDF: client-side libraries (free, open source) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script>
 // ============================================
 // UNIVERSAL → PDF CONVERTER — 100% CLIENT SIDE
 // Supports: docx, xlsx, txt, csv, jpg, png,
@@ -1284,25 +1699,35 @@ function wpAddFiles(files) {
   warn.textContent = '';
 
   files.forEach(function(f) {
-    var ext = wpExt(f.name);
+    var ext     = wpExt(f.name);
     var allowed = ['docx','doc','xlsx','xls','csv','txt',
                    'jpg','jpeg','png','gif','bmp','webp'];
     if (!allowed.includes(ext)) {
-      warn.textContent = f.name + ' — unsupported format, skipped';
+      showFileError('📄',
+        '<strong>' + f.name + '</strong> is not a supported format.<br><br>' +
+        'Supported formats: <strong>DOCX, XLSX, TXT, CSV, JPG, PNG, GIF, BMP, WEBP</strong><br>' +
+        'Please upload a supported file type.');
       return;
     }
     if (wpFiles.length >= WP_MAX_FILES) {
-      warn.textContent = 'Max ' + WP_MAX_FILES + ' files allowed';
+      showFileError('📋',
+        'Maximum <strong>' + WP_MAX_FILES + ' files</strong> allowed at once.<br><br>' +
+        'Please convert your current batch first, then upload more files.');
       return;
     }
     var perMB = f.size / 1024 / 1024;
     if (perMB > WP_MAX_PER_MB) {
-      warn.textContent = f.name + ' exceeds ' + WP_MAX_PER_MB + 'MB limit, skipped';
+      showFileError('⚠️',
+        '<strong>' + f.name + '</strong> is <strong>' + perMB.toFixed(1) + ' MB</strong>.<br><br>' +
+        'Maximum file size is <strong>' + WP_MAX_PER_MB + ' MB</strong> per file.<br>' +
+        'Please compress the file before uploading.');
       return;
     }
     var totalMB = wpFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
     if (totalMB + perMB > WP_MAX_TOTAL_MB) {
-      warn.textContent = 'Total size would exceed ' + WP_MAX_TOTAL_MB + 'MB, skipped';
+      showFileError('⚠️',
+        'Adding <strong>' + f.name + '</strong> would exceed the <strong>' + WP_MAX_TOTAL_MB + ' MB</strong> total limit.<br><br>' +
+        'Current batch: ' + totalMB.toFixed(1) + ' MB. Please convert current files first.');
       return;
     }
     if (!wpFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
@@ -1396,19 +1821,40 @@ async function wpConvertAll() {
   }
 
   document.getElementById('wpProgressBar').style.width   = '100%';
-  document.getElementById('wpProgressLabel').textContent = '✅ All done! ' + results.filter(function(r){return r.ok;}).length + ' of ' + results.length + ' converted.';
+  var okCount = results.filter(function(r){return r.ok;}).length;
+  document.getElementById('wpProgressLabel').textContent =
+    '✅ Done! ' + okCount + ' of ' + results.length + ' converted.';
+
+  // If multiple files — zip them
+  if (okCount > 1 && typeof JSZip !== 'undefined') {
+    document.getElementById('wpProgressLabel').textContent = 'Creating ZIP...';
+    var zip = new JSZip();
+    for (var ri = 0; ri < results.length; ri++) {
+      if (!results[ri].ok) continue;
+      var resp    = await fetch(results[ri].url);
+      var arrBuf  = await resp.arrayBuffer();
+      zip.file(results[ri].name, arrBuf);
+    }
+    var zipBlob = await zip.generateAsync({type:'blob'});
+    var zipUrl  = URL.createObjectURL(zipBlob);
+    var za      = document.createElement('a');
+    za.href     = zipUrl;
+    za.download = 'converted_pdfs.zip';
+    za.click();
+    document.getElementById('wpProgressLabel').textContent = '✅ ZIP downloaded!';
+  }
 
   var resDiv = document.getElementById('wpResults');
   resDiv.style.display = 'block';
   resDiv.innerHTML =
-    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">DOWNLOADS</div>' +
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
     results.map(function(r) {
       if (r.ok) {
         return '<div style="display:flex;align-items:center;justify-content:space-between;' +
                'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
                '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
                '<a href="' + r.url + '" download="' + r.name + '" ' +
-               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ Download</a></div>';
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ PDF</a></div>';
       }
       return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
              'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
@@ -1610,8 +2056,44 @@ function pwFilesSelected(fileList) {
   document.getElementById('pwInput').value = '';
 }
 function pwAddFiles(files) {
+  var PW_MAX_FILES    = 10;
+  var PW_MAX_PER_MB   = 20;
+  var PW_MAX_TOTAL_MB = 50;
+
   files.forEach(function(f) {
-    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+    // Format check
+    if (!f.name.match(/\.pdf$/i)) {
+      showFileError('📄',
+        '<strong>' + f.name + '</strong> is not a PDF file.<br><br>' +
+        'The PDF to Word converter only accepts <strong>.pdf files</strong>.<br>' +
+        'Please upload a valid PDF document.');
+      return;
+    }
+    // File count limit
+    if (pwFiles.length >= PW_MAX_FILES) {
+      showFileError('📋',
+        'Maximum <strong>' + PW_MAX_FILES + ' files</strong> allowed at once.<br><br>' +
+        'Please convert your current batch first, then upload more files.');
+      return;
+    }
+    // Per-file size limit
+    var perMB = f.size / 1024 / 1024;
+    if (perMB > PW_MAX_PER_MB) {
+      showFileError('⚠️',
+        '<strong>' + f.name + '</strong> is <strong>' + perMB.toFixed(1) + ' MB</strong>.<br><br>' +
+        'Maximum file size is <strong>' + PW_MAX_PER_MB + ' MB</strong> per file.<br>' +
+        'Please compress or split the PDF before uploading.');
+      return;
+    }
+    // Total size limit
+    var totalMB = pwFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
+    if (totalMB + perMB > PW_MAX_TOTAL_MB) {
+      showFileError('⚠️',
+        'Adding <strong>' + f.name + '</strong> would exceed the <strong>' + PW_MAX_TOTAL_MB + ' MB</strong> total limit.<br><br>' +
+        'Current batch: ' + totalMB.toFixed(1) + ' MB. Please convert current files first.');
+      return;
+    }
+    if (!pwFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
       pwFiles.push(f);
     }
   });
@@ -1694,11 +2176,32 @@ async function pwConvertAll() {
   }
 
   document.getElementById('pwProgressBar').style.width = '100%';
-  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+  var okCount2 = results.filter(function(r){return r.ok;}).length;
+  document.getElementById('pwProgressLabel').textContent =
+    '✅ Done! ' + okCount2 + ' of ' + results.length + ' converted.';
 
-  var resDiv = document.getElementById('pwResults');
-  resDiv.style.display = 'block';
-  resDiv.innerHTML =
+  // ZIP if multiple
+  if (okCount2 > 1 && typeof JSZip !== 'undefined') {
+    document.getElementById('pwProgressLabel').textContent = 'Creating ZIP...';
+    var zip2    = new JSZip();
+    for (var ri2 = 0; ri2 < results.length; ri2++) {
+      if (!results[ri2].ok) continue;
+      var resp2   = await fetch(results[ri2].url);
+      var arrBuf2 = await resp2.arrayBuffer();
+      zip2.file(results[ri2].name, arrBuf2);
+    }
+    var zipBlob2 = await zip2.generateAsync({type:'blob'});
+    var zipUrl2  = URL.createObjectURL(zipBlob2);
+    var za2      = document.createElement('a');
+    za2.href     = zipUrl2;
+    za2.download = 'converted_docx.zip';
+    za2.click();
+    document.getElementById('pwProgressLabel').textContent = '✅ ZIP downloaded!';
+  }
+
+  var resDiv2 = document.getElementById('pwResults');
+  resDiv2.style.display = 'block';
+  resDiv2.innerHTML =
     '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
     results.map(function(r) {
       if (r.ok) {
@@ -1706,13 +2209,11 @@ async function pwConvertAll() {
                'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
                '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
                '<a href="' + r.url + '" download="' + r.name + '" ' +
-               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
-               'Download again</a></div>';
-      } else {
-        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
-               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
-               '❌ ' + r.name + ' — ' + r.err + '</div>';
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ DOCX</a></div>';
       }
+      return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+             'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+             '❌ ' + r.name + ' — ' + r.err + '</div>';
     }).join('');
 
   btn.disabled = false;
@@ -1778,6 +2279,106 @@ async function pwConvertOne(file) {
   // Step 4: Pack to blob
   var docxBlob = await docx.Packer.toBlob(document);
   return docxBlob;
+}
+
+
+// ============================================
+// FILE VALIDATION
+// ============================================
+function showFileError(icon, msg) {
+  document.getElementById('fileValidIcon').textContent = icon;
+  document.getElementById('fileValidMsg').innerHTML    = msg;
+  document.getElementById('fileValidModal').style.display = 'flex';
+}
+
+// Count PDF pages using PDF.js
+async function getPdfPageCount(file) {
+  if (typeof pdfjsLib === 'undefined') return null;
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  return pdf.numPages;
+}
+
+// Extract text from first 3 pages of PDF
+async function getPdfText(file, maxPages) {
+  if (typeof pdfjsLib === 'undefined') return '';
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf  = await file.arrayBuffer();
+  const pdf  = await pdfjsLib.getDocument({data: buf}).promise;
+  let   text = '';
+  const pages = Math.min(maxPages || 3, pdf.numPages);
+  for (let i = 1; i <= pages; i++) {
+    const page    = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(function(x){ return x.str; }).join(' ') + ' ';
+  }
+  return text.toLowerCase();
+}
+
+// Validate Contract PDF
+async function validateContractPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The contract extractor only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Page count must be 8–12 pages
+  const pages = await getPdfPageCount(file);
+  if (pages !== null) {
+    if (pages < 8) {
+      showFileError('📋',
+        'This document has only <strong>' + pages + ' page' + (pages===1?'':'s') + '</strong>.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'Please check you have uploaded the correct document.');
+      return false;
+    }
+    if (pages > 12) {
+      showFileError('📋',
+        'This document has <strong>' + pages + ' pages</strong>, which exceeds the expected length.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'If this is a contract with addenda, please upload the main contract only.');
+      return false;
+    }
+  }
+
+  // 3. Must contain "residential" or "commercial"
+  const text = await getPdfText(file, 3);
+  const hasResidential = text.includes('residential');
+  const hasCommercial  = text.includes('commercial');
+  if (!hasResidential && !hasCommercial) {
+    showFileError('🏠',
+      'This document does not appear to be a <strong>Residential or Commercial contract</strong>.<br><br>' +
+      'The words "Residential" or "Commercial" were not found in this PDF. ' +
+      'Please upload a valid Texas real estate purchase contract.');
+    return false;
+  }
+
+  return true;
+}
+
+// Validate Commitment PDF
+async function validateCommitmentPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The XML generator only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Must contain "commitment" keyword
+  const text = await getPdfText(file, 4);
+  if (!text.includes('commitment')) {
+    showFileError('📑',
+      'This document does not appear to be a <strong>Title Commitment</strong>.<br><br>' +
+      'The word "Commitment" was not found in this PDF. ' +
+      'Please upload a Texas Title Commitment (Form T-7) to generate RamQuest XML.');
+    return false;
+  }
+
+  return true;
 }
 
 </script>
@@ -1835,25 +2436,35 @@ function wpAddFiles(files) {
   warn.textContent = '';
 
   files.forEach(function(f) {
-    var ext = wpExt(f.name);
+    var ext     = wpExt(f.name);
     var allowed = ['docx','doc','xlsx','xls','csv','txt',
                    'jpg','jpeg','png','gif','bmp','webp'];
     if (!allowed.includes(ext)) {
-      warn.textContent = f.name + ' — unsupported format, skipped';
+      showFileError('📄',
+        '<strong>' + f.name + '</strong> is not a supported format.<br><br>' +
+        'Supported formats: <strong>DOCX, XLSX, TXT, CSV, JPG, PNG, GIF, BMP, WEBP</strong><br>' +
+        'Please upload a supported file type.');
       return;
     }
     if (wpFiles.length >= WP_MAX_FILES) {
-      warn.textContent = 'Max ' + WP_MAX_FILES + ' files allowed';
+      showFileError('📋',
+        'Maximum <strong>' + WP_MAX_FILES + ' files</strong> allowed at once.<br><br>' +
+        'Please convert your current batch first, then upload more files.');
       return;
     }
     var perMB = f.size / 1024 / 1024;
     if (perMB > WP_MAX_PER_MB) {
-      warn.textContent = f.name + ' exceeds ' + WP_MAX_PER_MB + 'MB limit, skipped';
+      showFileError('⚠️',
+        '<strong>' + f.name + '</strong> is <strong>' + perMB.toFixed(1) + ' MB</strong>.<br><br>' +
+        'Maximum file size is <strong>' + WP_MAX_PER_MB + ' MB</strong> per file.<br>' +
+        'Please compress the file before uploading.');
       return;
     }
     var totalMB = wpFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
     if (totalMB + perMB > WP_MAX_TOTAL_MB) {
-      warn.textContent = 'Total size would exceed ' + WP_MAX_TOTAL_MB + 'MB, skipped';
+      showFileError('⚠️',
+        'Adding <strong>' + f.name + '</strong> would exceed the <strong>' + WP_MAX_TOTAL_MB + ' MB</strong> total limit.<br><br>' +
+        'Current batch: ' + totalMB.toFixed(1) + ' MB. Please convert current files first.');
       return;
     }
     if (!wpFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
@@ -1947,19 +2558,40 @@ async function wpConvertAll() {
   }
 
   document.getElementById('wpProgressBar').style.width   = '100%';
-  document.getElementById('wpProgressLabel').textContent = '✅ All done! ' + results.filter(function(r){return r.ok;}).length + ' of ' + results.length + ' converted.';
+  var okCount = results.filter(function(r){return r.ok;}).length;
+  document.getElementById('wpProgressLabel').textContent =
+    '✅ Done! ' + okCount + ' of ' + results.length + ' converted.';
+
+  // If multiple files — zip them
+  if (okCount > 1 && typeof JSZip !== 'undefined') {
+    document.getElementById('wpProgressLabel').textContent = 'Creating ZIP...';
+    var zip = new JSZip();
+    for (var ri = 0; ri < results.length; ri++) {
+      if (!results[ri].ok) continue;
+      var resp    = await fetch(results[ri].url);
+      var arrBuf  = await resp.arrayBuffer();
+      zip.file(results[ri].name, arrBuf);
+    }
+    var zipBlob = await zip.generateAsync({type:'blob'});
+    var zipUrl  = URL.createObjectURL(zipBlob);
+    var za      = document.createElement('a');
+    za.href     = zipUrl;
+    za.download = 'converted_pdfs.zip';
+    za.click();
+    document.getElementById('wpProgressLabel').textContent = '✅ ZIP downloaded!';
+  }
 
   var resDiv = document.getElementById('wpResults');
   resDiv.style.display = 'block';
   resDiv.innerHTML =
-    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">DOWNLOADS</div>' +
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
     results.map(function(r) {
       if (r.ok) {
         return '<div style="display:flex;align-items:center;justify-content:space-between;' +
                'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
                '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
                '<a href="' + r.url + '" download="' + r.name + '" ' +
-               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ Download</a></div>';
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ PDF</a></div>';
       }
       return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
              'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
@@ -2161,8 +2793,44 @@ function pwFilesSelected(fileList) {
   document.getElementById('pwInput').value = '';
 }
 function pwAddFiles(files) {
+  var PW_MAX_FILES    = 10;
+  var PW_MAX_PER_MB   = 20;
+  var PW_MAX_TOTAL_MB = 50;
+
   files.forEach(function(f) {
-    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+    // Format check
+    if (!f.name.match(/\.pdf$/i)) {
+      showFileError('📄',
+        '<strong>' + f.name + '</strong> is not a PDF file.<br><br>' +
+        'The PDF to Word converter only accepts <strong>.pdf files</strong>.<br>' +
+        'Please upload a valid PDF document.');
+      return;
+    }
+    // File count limit
+    if (pwFiles.length >= PW_MAX_FILES) {
+      showFileError('📋',
+        'Maximum <strong>' + PW_MAX_FILES + ' files</strong> allowed at once.<br><br>' +
+        'Please convert your current batch first, then upload more files.');
+      return;
+    }
+    // Per-file size limit
+    var perMB = f.size / 1024 / 1024;
+    if (perMB > PW_MAX_PER_MB) {
+      showFileError('⚠️',
+        '<strong>' + f.name + '</strong> is <strong>' + perMB.toFixed(1) + ' MB</strong>.<br><br>' +
+        'Maximum file size is <strong>' + PW_MAX_PER_MB + ' MB</strong> per file.<br>' +
+        'Please compress or split the PDF before uploading.');
+      return;
+    }
+    // Total size limit
+    var totalMB = pwFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
+    if (totalMB + perMB > PW_MAX_TOTAL_MB) {
+      showFileError('⚠️',
+        'Adding <strong>' + f.name + '</strong> would exceed the <strong>' + PW_MAX_TOTAL_MB + ' MB</strong> total limit.<br><br>' +
+        'Current batch: ' + totalMB.toFixed(1) + ' MB. Please convert current files first.');
+      return;
+    }
+    if (!pwFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
       pwFiles.push(f);
     }
   });
@@ -2245,11 +2913,32 @@ async function pwConvertAll() {
   }
 
   document.getElementById('pwProgressBar').style.width = '100%';
-  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+  var okCount2 = results.filter(function(r){return r.ok;}).length;
+  document.getElementById('pwProgressLabel').textContent =
+    '✅ Done! ' + okCount2 + ' of ' + results.length + ' converted.';
 
-  var resDiv = document.getElementById('pwResults');
-  resDiv.style.display = 'block';
-  resDiv.innerHTML =
+  // ZIP if multiple
+  if (okCount2 > 1 && typeof JSZip !== 'undefined') {
+    document.getElementById('pwProgressLabel').textContent = 'Creating ZIP...';
+    var zip2    = new JSZip();
+    for (var ri2 = 0; ri2 < results.length; ri2++) {
+      if (!results[ri2].ok) continue;
+      var resp2   = await fetch(results[ri2].url);
+      var arrBuf2 = await resp2.arrayBuffer();
+      zip2.file(results[ri2].name, arrBuf2);
+    }
+    var zipBlob2 = await zip2.generateAsync({type:'blob'});
+    var zipUrl2  = URL.createObjectURL(zipBlob2);
+    var za2      = document.createElement('a');
+    za2.href     = zipUrl2;
+    za2.download = 'converted_docx.zip';
+    za2.click();
+    document.getElementById('pwProgressLabel').textContent = '✅ ZIP downloaded!';
+  }
+
+  var resDiv2 = document.getElementById('pwResults');
+  resDiv2.style.display = 'block';
+  resDiv2.innerHTML =
     '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
     results.map(function(r) {
       if (r.ok) {
@@ -2257,13 +2946,11 @@ async function pwConvertAll() {
                'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
                '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
                '<a href="' + r.url + '" download="' + r.name + '" ' +
-               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
-               'Download again</a></div>';
-      } else {
-        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
-               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
-               '❌ ' + r.name + ' — ' + r.err + '</div>';
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ DOCX</a></div>';
       }
+      return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+             'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+             '❌ ' + r.name + ' — ' + r.err + '</div>';
     }).join('');
 
   btn.disabled = false;
@@ -2329,6 +3016,106 @@ async function pwConvertOne(file) {
   // Step 4: Pack to blob
   var docxBlob = await docx.Packer.toBlob(document);
   return docxBlob;
+}
+
+
+// ============================================
+// FILE VALIDATION
+// ============================================
+function showFileError(icon, msg) {
+  document.getElementById('fileValidIcon').textContent = icon;
+  document.getElementById('fileValidMsg').innerHTML    = msg;
+  document.getElementById('fileValidModal').style.display = 'flex';
+}
+
+// Count PDF pages using PDF.js
+async function getPdfPageCount(file) {
+  if (typeof pdfjsLib === 'undefined') return null;
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  return pdf.numPages;
+}
+
+// Extract text from first 3 pages of PDF
+async function getPdfText(file, maxPages) {
+  if (typeof pdfjsLib === 'undefined') return '';
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf  = await file.arrayBuffer();
+  const pdf  = await pdfjsLib.getDocument({data: buf}).promise;
+  let   text = '';
+  const pages = Math.min(maxPages || 3, pdf.numPages);
+  for (let i = 1; i <= pages; i++) {
+    const page    = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(function(x){ return x.str; }).join(' ') + ' ';
+  }
+  return text.toLowerCase();
+}
+
+// Validate Contract PDF
+async function validateContractPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The contract extractor only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Page count must be 8–12 pages
+  const pages = await getPdfPageCount(file);
+  if (pages !== null) {
+    if (pages < 8) {
+      showFileError('📋',
+        'This document has only <strong>' + pages + ' page' + (pages===1?'':'s') + '</strong>.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'Please check you have uploaded the correct document.');
+      return false;
+    }
+    if (pages > 12) {
+      showFileError('📋',
+        'This document has <strong>' + pages + ' pages</strong>, which exceeds the expected length.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'If this is a contract with addenda, please upload the main contract only.');
+      return false;
+    }
+  }
+
+  // 3. Must contain "residential" or "commercial"
+  const text = await getPdfText(file, 3);
+  const hasResidential = text.includes('residential');
+  const hasCommercial  = text.includes('commercial');
+  if (!hasResidential && !hasCommercial) {
+    showFileError('🏠',
+      'This document does not appear to be a <strong>Residential or Commercial contract</strong>.<br><br>' +
+      'The words "Residential" or "Commercial" were not found in this PDF. ' +
+      'Please upload a valid Texas real estate purchase contract.');
+    return false;
+  }
+
+  return true;
+}
+
+// Validate Commitment PDF
+async function validateCommitmentPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The XML generator only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Must contain "commitment" keyword
+  const text = await getPdfText(file, 4);
+  if (!text.includes('commitment')) {
+    showFileError('📑',
+      'This document does not appear to be a <strong>Title Commitment</strong>.<br><br>' +
+      'The word "Commitment" was not found in this PDF. ' +
+      'Please upload a Texas Title Commitment (Form T-7) to generate RamQuest XML.');
+    return false;
+  }
+
+  return true;
 }
 
 </script>
@@ -2386,25 +3173,35 @@ function wpAddFiles(files) {
   warn.textContent = '';
 
   files.forEach(function(f) {
-    var ext = wpExt(f.name);
+    var ext     = wpExt(f.name);
     var allowed = ['docx','doc','xlsx','xls','csv','txt',
                    'jpg','jpeg','png','gif','bmp','webp'];
     if (!allowed.includes(ext)) {
-      warn.textContent = f.name + ' — unsupported format, skipped';
+      showFileError('📄',
+        '<strong>' + f.name + '</strong> is not a supported format.<br><br>' +
+        'Supported formats: <strong>DOCX, XLSX, TXT, CSV, JPG, PNG, GIF, BMP, WEBP</strong><br>' +
+        'Please upload a supported file type.');
       return;
     }
     if (wpFiles.length >= WP_MAX_FILES) {
-      warn.textContent = 'Max ' + WP_MAX_FILES + ' files allowed';
+      showFileError('📋',
+        'Maximum <strong>' + WP_MAX_FILES + ' files</strong> allowed at once.<br><br>' +
+        'Please convert your current batch first, then upload more files.');
       return;
     }
     var perMB = f.size / 1024 / 1024;
     if (perMB > WP_MAX_PER_MB) {
-      warn.textContent = f.name + ' exceeds ' + WP_MAX_PER_MB + 'MB limit, skipped';
+      showFileError('⚠️',
+        '<strong>' + f.name + '</strong> is <strong>' + perMB.toFixed(1) + ' MB</strong>.<br><br>' +
+        'Maximum file size is <strong>' + WP_MAX_PER_MB + ' MB</strong> per file.<br>' +
+        'Please compress the file before uploading.');
       return;
     }
     var totalMB = wpFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
     if (totalMB + perMB > WP_MAX_TOTAL_MB) {
-      warn.textContent = 'Total size would exceed ' + WP_MAX_TOTAL_MB + 'MB, skipped';
+      showFileError('⚠️',
+        'Adding <strong>' + f.name + '</strong> would exceed the <strong>' + WP_MAX_TOTAL_MB + ' MB</strong> total limit.<br><br>' +
+        'Current batch: ' + totalMB.toFixed(1) + ' MB. Please convert current files first.');
       return;
     }
     if (!wpFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
@@ -2498,19 +3295,40 @@ async function wpConvertAll() {
   }
 
   document.getElementById('wpProgressBar').style.width   = '100%';
-  document.getElementById('wpProgressLabel').textContent = '✅ All done! ' + results.filter(function(r){return r.ok;}).length + ' of ' + results.length + ' converted.';
+  var okCount = results.filter(function(r){return r.ok;}).length;
+  document.getElementById('wpProgressLabel').textContent =
+    '✅ Done! ' + okCount + ' of ' + results.length + ' converted.';
+
+  // If multiple files — zip them
+  if (okCount > 1 && typeof JSZip !== 'undefined') {
+    document.getElementById('wpProgressLabel').textContent = 'Creating ZIP...';
+    var zip = new JSZip();
+    for (var ri = 0; ri < results.length; ri++) {
+      if (!results[ri].ok) continue;
+      var resp    = await fetch(results[ri].url);
+      var arrBuf  = await resp.arrayBuffer();
+      zip.file(results[ri].name, arrBuf);
+    }
+    var zipBlob = await zip.generateAsync({type:'blob'});
+    var zipUrl  = URL.createObjectURL(zipBlob);
+    var za      = document.createElement('a');
+    za.href     = zipUrl;
+    za.download = 'converted_pdfs.zip';
+    za.click();
+    document.getElementById('wpProgressLabel').textContent = '✅ ZIP downloaded!';
+  }
 
   var resDiv = document.getElementById('wpResults');
   resDiv.style.display = 'block';
   resDiv.innerHTML =
-    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">DOWNLOADS</div>' +
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
     results.map(function(r) {
       if (r.ok) {
         return '<div style="display:flex;align-items:center;justify-content:space-between;' +
                'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
                '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
                '<a href="' + r.url + '" download="' + r.name + '" ' +
-               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ Download</a></div>';
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ PDF</a></div>';
       }
       return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
              'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
@@ -2712,8 +3530,44 @@ function pwFilesSelected(fileList) {
   document.getElementById('pwInput').value = '';
 }
 function pwAddFiles(files) {
+  var PW_MAX_FILES    = 10;
+  var PW_MAX_PER_MB   = 20;
+  var PW_MAX_TOTAL_MB = 50;
+
   files.forEach(function(f) {
-    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+    // Format check
+    if (!f.name.match(/\.pdf$/i)) {
+      showFileError('📄',
+        '<strong>' + f.name + '</strong> is not a PDF file.<br><br>' +
+        'The PDF to Word converter only accepts <strong>.pdf files</strong>.<br>' +
+        'Please upload a valid PDF document.');
+      return;
+    }
+    // File count limit
+    if (pwFiles.length >= PW_MAX_FILES) {
+      showFileError('📋',
+        'Maximum <strong>' + PW_MAX_FILES + ' files</strong> allowed at once.<br><br>' +
+        'Please convert your current batch first, then upload more files.');
+      return;
+    }
+    // Per-file size limit
+    var perMB = f.size / 1024 / 1024;
+    if (perMB > PW_MAX_PER_MB) {
+      showFileError('⚠️',
+        '<strong>' + f.name + '</strong> is <strong>' + perMB.toFixed(1) + ' MB</strong>.<br><br>' +
+        'Maximum file size is <strong>' + PW_MAX_PER_MB + ' MB</strong> per file.<br>' +
+        'Please compress or split the PDF before uploading.');
+      return;
+    }
+    // Total size limit
+    var totalMB = pwFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
+    if (totalMB + perMB > PW_MAX_TOTAL_MB) {
+      showFileError('⚠️',
+        'Adding <strong>' + f.name + '</strong> would exceed the <strong>' + PW_MAX_TOTAL_MB + ' MB</strong> total limit.<br><br>' +
+        'Current batch: ' + totalMB.toFixed(1) + ' MB. Please convert current files first.');
+      return;
+    }
+    if (!pwFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
       pwFiles.push(f);
     }
   });
@@ -2796,11 +3650,32 @@ async function pwConvertAll() {
   }
 
   document.getElementById('pwProgressBar').style.width = '100%';
-  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+  var okCount2 = results.filter(function(r){return r.ok;}).length;
+  document.getElementById('pwProgressLabel').textContent =
+    '✅ Done! ' + okCount2 + ' of ' + results.length + ' converted.';
 
-  var resDiv = document.getElementById('pwResults');
-  resDiv.style.display = 'block';
-  resDiv.innerHTML =
+  // ZIP if multiple
+  if (okCount2 > 1 && typeof JSZip !== 'undefined') {
+    document.getElementById('pwProgressLabel').textContent = 'Creating ZIP...';
+    var zip2    = new JSZip();
+    for (var ri2 = 0; ri2 < results.length; ri2++) {
+      if (!results[ri2].ok) continue;
+      var resp2   = await fetch(results[ri2].url);
+      var arrBuf2 = await resp2.arrayBuffer();
+      zip2.file(results[ri2].name, arrBuf2);
+    }
+    var zipBlob2 = await zip2.generateAsync({type:'blob'});
+    var zipUrl2  = URL.createObjectURL(zipBlob2);
+    var za2      = document.createElement('a');
+    za2.href     = zipUrl2;
+    za2.download = 'converted_docx.zip';
+    za2.click();
+    document.getElementById('pwProgressLabel').textContent = '✅ ZIP downloaded!';
+  }
+
+  var resDiv2 = document.getElementById('pwResults');
+  resDiv2.style.display = 'block';
+  resDiv2.innerHTML =
     '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
     results.map(function(r) {
       if (r.ok) {
@@ -2808,13 +3683,11 @@ async function pwConvertAll() {
                'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
                '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
                '<a href="' + r.url + '" download="' + r.name + '" ' +
-               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
-               'Download again</a></div>';
-      } else {
-        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
-               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
-               '❌ ' + r.name + ' — ' + r.err + '</div>';
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ DOCX</a></div>';
       }
+      return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+             'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+             '❌ ' + r.name + ' — ' + r.err + '</div>';
     }).join('');
 
   btn.disabled = false;
@@ -2880,6 +3753,106 @@ async function pwConvertOne(file) {
   // Step 4: Pack to blob
   var docxBlob = await docx.Packer.toBlob(document);
   return docxBlob;
+}
+
+
+// ============================================
+// FILE VALIDATION
+// ============================================
+function showFileError(icon, msg) {
+  document.getElementById('fileValidIcon').textContent = icon;
+  document.getElementById('fileValidMsg').innerHTML    = msg;
+  document.getElementById('fileValidModal').style.display = 'flex';
+}
+
+// Count PDF pages using PDF.js
+async function getPdfPageCount(file) {
+  if (typeof pdfjsLib === 'undefined') return null;
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  return pdf.numPages;
+}
+
+// Extract text from first 3 pages of PDF
+async function getPdfText(file, maxPages) {
+  if (typeof pdfjsLib === 'undefined') return '';
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf  = await file.arrayBuffer();
+  const pdf  = await pdfjsLib.getDocument({data: buf}).promise;
+  let   text = '';
+  const pages = Math.min(maxPages || 3, pdf.numPages);
+  for (let i = 1; i <= pages; i++) {
+    const page    = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(function(x){ return x.str; }).join(' ') + ' ';
+  }
+  return text.toLowerCase();
+}
+
+// Validate Contract PDF
+async function validateContractPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The contract extractor only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Page count must be 8–12 pages
+  const pages = await getPdfPageCount(file);
+  if (pages !== null) {
+    if (pages < 8) {
+      showFileError('📋',
+        'This document has only <strong>' + pages + ' page' + (pages===1?'':'s') + '</strong>.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'Please check you have uploaded the correct document.');
+      return false;
+    }
+    if (pages > 12) {
+      showFileError('📋',
+        'This document has <strong>' + pages + ' pages</strong>, which exceeds the expected length.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'If this is a contract with addenda, please upload the main contract only.');
+      return false;
+    }
+  }
+
+  // 3. Must contain "residential" or "commercial"
+  const text = await getPdfText(file, 3);
+  const hasResidential = text.includes('residential');
+  const hasCommercial  = text.includes('commercial');
+  if (!hasResidential && !hasCommercial) {
+    showFileError('🏠',
+      'This document does not appear to be a <strong>Residential or Commercial contract</strong>.<br><br>' +
+      'The words "Residential" or "Commercial" were not found in this PDF. ' +
+      'Please upload a valid Texas real estate purchase contract.');
+    return false;
+  }
+
+  return true;
+}
+
+// Validate Commitment PDF
+async function validateCommitmentPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The XML generator only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Must contain "commitment" keyword
+  const text = await getPdfText(file, 4);
+  if (!text.includes('commitment')) {
+    showFileError('📑',
+      'This document does not appear to be a <strong>Title Commitment</strong>.<br><br>' +
+      'The word "Commitment" was not found in this PDF. ' +
+      'Please upload a Texas Title Commitment (Form T-7) to generate RamQuest XML.');
+    return false;
+  }
+
+  return true;
 }
 
 </script>
@@ -2972,6 +3945,29 @@ async function pwConvertOne(file) {
         <input type="checkbox" id="rememberMe" checked>
         <label for="rememberMe">
           Remember me on this device
+        </label>
+      </div>
+
+      <!-- Terms agreement — must check before Sign In -->
+      <div style="display:flex;align-items:flex-start;gap:10px;
+                  margin-bottom:16px;padding:12px 14px;
+                  background:rgba(201,168,76,.06);
+                  border:1px solid rgba(201,168,76,.2);
+                  border-radius:4px">
+        <input type="checkbox" id="loginTermsChk"
+          onchange="loginChk()"
+          style="margin-top:3px;accent-color:var(--gold);
+                 cursor:pointer;flex-shrink:0">
+        <label for="loginTermsChk"
+          style="font-size:11px;color:var(--muted);
+                 line-height:1.6;cursor:pointer">
+          I have read and agree to the
+          <a onclick="showPage('privacy')" href="javascript:void(0)"
+            style="color:var(--gold);text-decoration:none">
+            Privacy Policy &amp; Terms of Service
+          </a>.
+          I understand I must cross-check all extracted data before
+          importing into RamQuest.
         </label>
       </div>
 
@@ -3212,8 +4208,9 @@ async function pwConvertOne(file) {
 
     <div class="tool-card">
       <div class="card-section">Universal → PDF Converter</div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:.5px">
+      <p style="font-size:12px;color:#a0a8c0;margin-bottom:6px;letter-spacing:.5px;line-height:1.7">
         Drop any file — it converts to PDF instantly in your browser. Nothing is uploaded to any server.
+        If more than one file, downloads as a single <strong style="color:var(--gold)">ZIP folder</strong>.
       </p>
 
       <!-- Supported formats badge row -->
@@ -3294,9 +4291,10 @@ async function pwConvertOne(file) {
     <!-- PDF TO WORD SECTION -->
     <div class="tool-card" style="margin-top:24px">
       <div class="card-section">PDF to Word Converter</div>
-      <p style="font-size:12px;color:var(--muted);margin-bottom:20px;letter-spacing:.5px">
-        Upload one or more PDF files — each converts to a separate .docx download.
-        100% client-side. Nothing is sent to any server.
+      <p style="font-size:12px;color:#a0a8c0;margin-bottom:20px;letter-spacing:.5px;line-height:1.7">
+        Upload one or more PDF files — each converts to a separate <strong style="color:var(--gold)">.docx</strong> download.
+        If more than one file, downloads as a single <strong style="color:var(--gold)">ZIP folder</strong>.
+        100% client-side. Nothing sent to any server.
       </p>
 
       <!-- Drop Zone -->
@@ -3920,9 +4918,11 @@ function loginChk() {
   if (extBtn && chkEl) {
     if (!chkEl.checked) extBtn.disabled = true;
   }
-  const n = document.getElementById('loginName').value.trim();
-  const p = document.getElementById('loginPw').value.trim();
-  document.getElementById('loginBtn').disabled = !(n && p);
+  const n    = document.getElementById('loginName').value.trim();
+  const p    = document.getElementById('loginPw').value.trim();
+  const ltc  = document.getElementById('loginTermsChk');
+  const agreed = ltc ? ltc.checked : true;
+  document.getElementById('loginBtn').disabled = !(n && p && agreed);
 }
 
 async function doLogin() {
@@ -4036,9 +5036,16 @@ function showPage(name) {
 // ============================================
 // FILE UPLOAD — CONTRACT
 // ============================================
-function onFile(input) {
-  pdfFile = input.files[0];
-  if (!pdfFile) return;
+async function onFile(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+
+  // Validate contract PDF
+  const valid = await validateContractPdf(file);
+  if (!valid) return;
+
+  pdfFile = file;
   const zone = document.getElementById('uploadZone');
   zone.classList.add('has-file');
   document.getElementById('uploadTitle')
@@ -4058,9 +5065,16 @@ function checkReady() {
 // ============================================
 // FILE UPLOAD — COMMITMENT
 // ============================================
-function onCommitFile(input) {
-  commitFile = input.files[0];
-  if (!commitFile) return;
+async function onCommitFile(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+
+  // Validate commitment PDF
+  const valid = await validateCommitmentPdf(file);
+  if (!valid) return;
+
+  commitFile = file;
   const zone = document.getElementById('commitZone');
   zone.classList.add('has-file');
   document.getElementById('commitTitle')
@@ -4526,25 +5540,35 @@ function wpAddFiles(files) {
   warn.textContent = '';
 
   files.forEach(function(f) {
-    var ext = wpExt(f.name);
+    var ext     = wpExt(f.name);
     var allowed = ['docx','doc','xlsx','xls','csv','txt',
                    'jpg','jpeg','png','gif','bmp','webp'];
     if (!allowed.includes(ext)) {
-      warn.textContent = f.name + ' — unsupported format, skipped';
+      showFileError('📄',
+        '<strong>' + f.name + '</strong> is not a supported format.<br><br>' +
+        'Supported formats: <strong>DOCX, XLSX, TXT, CSV, JPG, PNG, GIF, BMP, WEBP</strong><br>' +
+        'Please upload a supported file type.');
       return;
     }
     if (wpFiles.length >= WP_MAX_FILES) {
-      warn.textContent = 'Max ' + WP_MAX_FILES + ' files allowed';
+      showFileError('📋',
+        'Maximum <strong>' + WP_MAX_FILES + ' files</strong> allowed at once.<br><br>' +
+        'Please convert your current batch first, then upload more files.');
       return;
     }
     var perMB = f.size / 1024 / 1024;
     if (perMB > WP_MAX_PER_MB) {
-      warn.textContent = f.name + ' exceeds ' + WP_MAX_PER_MB + 'MB limit, skipped';
+      showFileError('⚠️',
+        '<strong>' + f.name + '</strong> is <strong>' + perMB.toFixed(1) + ' MB</strong>.<br><br>' +
+        'Maximum file size is <strong>' + WP_MAX_PER_MB + ' MB</strong> per file.<br>' +
+        'Please compress the file before uploading.');
       return;
     }
     var totalMB = wpFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
     if (totalMB + perMB > WP_MAX_TOTAL_MB) {
-      warn.textContent = 'Total size would exceed ' + WP_MAX_TOTAL_MB + 'MB, skipped';
+      showFileError('⚠️',
+        'Adding <strong>' + f.name + '</strong> would exceed the <strong>' + WP_MAX_TOTAL_MB + ' MB</strong> total limit.<br><br>' +
+        'Current batch: ' + totalMB.toFixed(1) + ' MB. Please convert current files first.');
       return;
     }
     if (!wpFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
@@ -4638,19 +5662,40 @@ async function wpConvertAll() {
   }
 
   document.getElementById('wpProgressBar').style.width   = '100%';
-  document.getElementById('wpProgressLabel').textContent = '✅ All done! ' + results.filter(function(r){return r.ok;}).length + ' of ' + results.length + ' converted.';
+  var okCount = results.filter(function(r){return r.ok;}).length;
+  document.getElementById('wpProgressLabel').textContent =
+    '✅ Done! ' + okCount + ' of ' + results.length + ' converted.';
+
+  // If multiple files — zip them
+  if (okCount > 1 && typeof JSZip !== 'undefined') {
+    document.getElementById('wpProgressLabel').textContent = 'Creating ZIP...';
+    var zip = new JSZip();
+    for (var ri = 0; ri < results.length; ri++) {
+      if (!results[ri].ok) continue;
+      var resp    = await fetch(results[ri].url);
+      var arrBuf  = await resp.arrayBuffer();
+      zip.file(results[ri].name, arrBuf);
+    }
+    var zipBlob = await zip.generateAsync({type:'blob'});
+    var zipUrl  = URL.createObjectURL(zipBlob);
+    var za      = document.createElement('a');
+    za.href     = zipUrl;
+    za.download = 'converted_pdfs.zip';
+    za.click();
+    document.getElementById('wpProgressLabel').textContent = '✅ ZIP downloaded!';
+  }
 
   var resDiv = document.getElementById('wpResults');
   resDiv.style.display = 'block';
   resDiv.innerHTML =
-    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">DOWNLOADS</div>' +
+    '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
     results.map(function(r) {
       if (r.ok) {
         return '<div style="display:flex;align-items:center;justify-content:space-between;' +
                'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
                '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
                '<a href="' + r.url + '" download="' + r.name + '" ' +
-               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ Download</a></div>';
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ PDF</a></div>';
       }
       return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
              'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
@@ -4852,8 +5897,44 @@ function pwFilesSelected(fileList) {
   document.getElementById('pwInput').value = '';
 }
 function pwAddFiles(files) {
+  var PW_MAX_FILES    = 10;
+  var PW_MAX_PER_MB   = 20;
+  var PW_MAX_TOTAL_MB = 50;
+
   files.forEach(function(f) {
-    if (!pwFiles.find(function(x){ return x.name === f.name && x.size === f.size; })) {
+    // Format check
+    if (!f.name.match(/\.pdf$/i)) {
+      showFileError('📄',
+        '<strong>' + f.name + '</strong> is not a PDF file.<br><br>' +
+        'The PDF to Word converter only accepts <strong>.pdf files</strong>.<br>' +
+        'Please upload a valid PDF document.');
+      return;
+    }
+    // File count limit
+    if (pwFiles.length >= PW_MAX_FILES) {
+      showFileError('📋',
+        'Maximum <strong>' + PW_MAX_FILES + ' files</strong> allowed at once.<br><br>' +
+        'Please convert your current batch first, then upload more files.');
+      return;
+    }
+    // Per-file size limit
+    var perMB = f.size / 1024 / 1024;
+    if (perMB > PW_MAX_PER_MB) {
+      showFileError('⚠️',
+        '<strong>' + f.name + '</strong> is <strong>' + perMB.toFixed(1) + ' MB</strong>.<br><br>' +
+        'Maximum file size is <strong>' + PW_MAX_PER_MB + ' MB</strong> per file.<br>' +
+        'Please compress or split the PDF before uploading.');
+      return;
+    }
+    // Total size limit
+    var totalMB = pwFiles.reduce(function(s,x){ return s + x.size; }, 0) / 1024 / 1024;
+    if (totalMB + perMB > PW_MAX_TOTAL_MB) {
+      showFileError('⚠️',
+        'Adding <strong>' + f.name + '</strong> would exceed the <strong>' + PW_MAX_TOTAL_MB + ' MB</strong> total limit.<br><br>' +
+        'Current batch: ' + totalMB.toFixed(1) + ' MB. Please convert current files first.');
+      return;
+    }
+    if (!pwFiles.find(function(x){ return x.name===f.name && x.size===f.size; })) {
       pwFiles.push(f);
     }
   });
@@ -4936,11 +6017,32 @@ async function pwConvertAll() {
   }
 
   document.getElementById('pwProgressBar').style.width = '100%';
-  document.getElementById('pwProgressLabel').textContent = 'Complete!';
+  var okCount2 = results.filter(function(r){return r.ok;}).length;
+  document.getElementById('pwProgressLabel').textContent =
+    '✅ Done! ' + okCount2 + ' of ' + results.length + ' converted.';
 
-  var resDiv = document.getElementById('pwResults');
-  resDiv.style.display = 'block';
-  resDiv.innerHTML =
+  // ZIP if multiple
+  if (okCount2 > 1 && typeof JSZip !== 'undefined') {
+    document.getElementById('pwProgressLabel').textContent = 'Creating ZIP...';
+    var zip2    = new JSZip();
+    for (var ri2 = 0; ri2 < results.length; ri2++) {
+      if (!results[ri2].ok) continue;
+      var resp2   = await fetch(results[ri2].url);
+      var arrBuf2 = await resp2.arrayBuffer();
+      zip2.file(results[ri2].name, arrBuf2);
+    }
+    var zipBlob2 = await zip2.generateAsync({type:'blob'});
+    var zipUrl2  = URL.createObjectURL(zipBlob2);
+    var za2      = document.createElement('a');
+    za2.href     = zipUrl2;
+    za2.download = 'converted_docx.zip';
+    za2.click();
+    document.getElementById('pwProgressLabel').textContent = '✅ ZIP downloaded!';
+  }
+
+  var resDiv2 = document.getElementById('pwResults');
+  resDiv2.style.display = 'block';
+  resDiv2.innerHTML =
     '<div style="font-size:11px;letter-spacing:2px;color:var(--gold);margin-bottom:10px">RESULTS</div>' +
     results.map(function(r) {
       if (r.ok) {
@@ -4948,13 +6050,11 @@ async function pwConvertAll() {
                'padding:8px 12px;background:var(--navy);border-radius:4px;margin-bottom:6px">' +
                '<span style="font-size:12px;color:var(--white)">✅ ' + r.name + '</span>' +
                '<a href="' + r.url + '" download="' + r.name + '" ' +
-               'style="font-size:11px;color:var(--gold);letter-spacing:1px;text-decoration:none">' +
-               'Download again</a></div>';
-      } else {
-        return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
-               'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
-               '❌ ' + r.name + ' — ' + r.err + '</div>';
+               'style="font-size:11px;color:var(--gold);text-decoration:none">↓ DOCX</a></div>';
       }
+      return '<div style="padding:8px 12px;background:rgba(229,115,115,.1);' +
+             'border-radius:4px;margin-bottom:6px;font-size:12px;color:#e57373">' +
+             '❌ ' + r.name + ' — ' + r.err + '</div>';
     }).join('');
 
   btn.disabled = false;
@@ -5022,6 +6122,106 @@ async function pwConvertOne(file) {
   return docxBlob;
 }
 
+
+// ============================================
+// FILE VALIDATION
+// ============================================
+function showFileError(icon, msg) {
+  document.getElementById('fileValidIcon').textContent = icon;
+  document.getElementById('fileValidMsg').innerHTML    = msg;
+  document.getElementById('fileValidModal').style.display = 'flex';
+}
+
+// Count PDF pages using PDF.js
+async function getPdfPageCount(file) {
+  if (typeof pdfjsLib === 'undefined') return null;
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  return pdf.numPages;
+}
+
+// Extract text from first 3 pages of PDF
+async function getPdfText(file, maxPages) {
+  if (typeof pdfjsLib === 'undefined') return '';
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf  = await file.arrayBuffer();
+  const pdf  = await pdfjsLib.getDocument({data: buf}).promise;
+  let   text = '';
+  const pages = Math.min(maxPages || 3, pdf.numPages);
+  for (let i = 1; i <= pages; i++) {
+    const page    = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(function(x){ return x.str; }).join(' ') + ' ';
+  }
+  return text.toLowerCase();
+}
+
+// Validate Contract PDF
+async function validateContractPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The contract extractor only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Page count must be 8–12 pages
+  const pages = await getPdfPageCount(file);
+  if (pages !== null) {
+    if (pages < 8) {
+      showFileError('📋',
+        'This document has only <strong>' + pages + ' page' + (pages===1?'':'s') + '</strong>.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'Please check you have uploaded the correct document.');
+      return false;
+    }
+    if (pages > 12) {
+      showFileError('📋',
+        'This document has <strong>' + pages + ' pages</strong>, which exceeds the expected length.<br><br>' +
+        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
+        'If this is a contract with addenda, please upload the main contract only.');
+      return false;
+    }
+  }
+
+  // 3. Must contain "residential" or "commercial"
+  const text = await getPdfText(file, 3);
+  const hasResidential = text.includes('residential');
+  const hasCommercial  = text.includes('commercial');
+  if (!hasResidential && !hasCommercial) {
+    showFileError('🏠',
+      'This document does not appear to be a <strong>Residential or Commercial contract</strong>.<br><br>' +
+      'The words "Residential" or "Commercial" were not found in this PDF. ' +
+      'Please upload a valid Texas real estate purchase contract.');
+    return false;
+  }
+
+  return true;
+}
+
+// Validate Commitment PDF
+async function validateCommitmentPdf(file) {
+  // 1. Must be PDF
+  if (!file.name.match(/\.pdf$/i)) {
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The XML generator only accepts PDF format.');
+    return false;
+  }
+
+  // 2. Must contain "commitment" keyword
+  const text = await getPdfText(file, 4);
+  if (!text.includes('commitment')) {
+    showFileError('📑',
+      'This document does not appear to be a <strong>Title Commitment</strong>.<br><br>' +
+      'The word "Commitment" was not found in this PDF. ' +
+      'Please upload a Texas Title Commitment (Form T-7) to generate RamQuest XML.');
+    return false;
+  }
+
+  return true;
+}
+
 </script>
 
 
@@ -5077,6 +6277,37 @@ async function pwConvertOne(file) {
 
       </div>
     </div>
+  </div>
+</div>
+
+
+<!-- FILE VALIDATION MODAL -->
+<div id="fileValidModal" style="
+  display:none;position:fixed;inset:0;
+  background:rgba(6,13,31,.88);
+  z-index:999;align-items:center;justify-content:center">
+  <div style="
+    background:var(--navy2);border:1px solid var(--border);
+    border-radius:8px;padding:36px;width:380px;max-width:90vw;
+    box-shadow:0 20px 60px rgba(0,0,0,.6)">
+    <div style="font-size:28px;text-align:center;margin-bottom:16px"
+      id="fileValidIcon">⚠️</div>
+    <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;
+      color:var(--gold);margin-bottom:12px;text-align:center">
+      Upload Error
+    </div>
+    <div style="font-size:13px;color:var(--white);line-height:1.7;
+      text-align:center;margin-bottom:24px"
+      id="fileValidMsg">
+    </div>
+    <button onclick="document.getElementById('fileValidModal').style.display='none'"
+      style="width:100%;padding:13px;background:var(--gold);
+        border:none;border-radius:4px;color:var(--navy);
+        cursor:pointer;font-size:11px;letter-spacing:2px;
+        font-family:Montserrat,sans-serif;font-weight:700;
+        text-transform:uppercase">
+      OK, I Understand
+    </button>
   </div>
 </div>
 
