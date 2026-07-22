@@ -812,6 +812,38 @@ input[type=file]{display:none}
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+
+<!-- ============================================
+     NAVIGATION BAR
+     ============================================ -->
+<nav id="mainNav" style="display:none">
+  <div class="nav-brand">
+    <span class="brand-x">X</span>tract
+  </div>
+  <div class="nav-links">
+    <button class="nav-link active" onclick="showPage('tool')" id="navHome">Home</button>
+    <button class="nav-link" onclick="showPage('wordPdf')" id="navWordPdf">Converter</button>
+    <button class="nav-link" onclick="showPage('settings')" id="navSettings">Settings</button>
+    <button class="nav-link" onclick="showPage('faq')" id="navFaq">FAQ</button>
+    <button class="nav-link" onclick="showPage('packages')" id="navPkg">Packages</button>
+    <button class="nav-link" onclick="showPage('contact')" id="navContact">Contact</button>
+    <button class="nav-link" onclick="showPage('privacy')" id="navPrivacy">Privacy Policy</button>
+  </div>
+  <div class="nav-user">
+    <span id="navUser" style="display:none"></span>
+    <button id="navLogout" onclick="logout()"
+      style="display:none;padding:6px 16px;background:transparent;
+             border:1px solid var(--border);border-radius:3px;
+             color:var(--muted);cursor:pointer;font-size:11px;
+             letter-spacing:1px;font-family:Montserrat,sans-serif;
+             text-transform:uppercase">
+      Logout
+    </button>
+  </div>
+</nav>
+
 <div id="loginPage" class="page active">
   <div class="login-wrap">
 
