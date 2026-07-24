@@ -2569,8 +2569,6 @@ async function wpConvertAll() {
       var pdfName = f.name.replace(/\.[^.]+$/, '') + '.pdf';
       results.push({ url:url, name:pdfName, ok:true });
       if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
-      var a = document.createElement('a');
-      a.href = url; a.download = pdfName; a.click();
     } catch(err) {
       results.push({ name:f.name, ok:false, err:err.message });
       if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
@@ -2926,12 +2924,6 @@ async function pwConvertAll() {
       var docName  = f.name.replace(/\.pdf$/i, '') + '.docx';
       results.push({ url: url, name: docName, ok: true });
       if (statusEl) { statusEl.textContent = '✅ Done'; statusEl.style.color = '#4caf50'; }
-
-      // Auto-download
-      var a = document.createElement('a');
-      a.href     = url;
-      a.download = docName;
-      a.click();
     } catch(err) {
       results.push({ name: f.name, ok: false, err: err.message });
       if (statusEl) { statusEl.textContent = '❌ Failed'; statusEl.style.color = '#e57373'; }
