@@ -60,6 +60,7 @@ body::before{
 }
 .page.active{display:block}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1;transform:translateY(0)}50%{opacity:.4;transform:translateY(5px)}}
 
 /* =============================================
    NAVIGATION BAR
@@ -819,8 +820,9 @@ input[type=file]{display:none}
      NAVIGATION BAR
      ============================================ -->
 <nav id="mainNav" style="display:none">
-  <div class="nav-brand">
-    <span class="brand-x">X</span>tract
+  <div class="nav-logo" onclick="showPage('tool')">
+    <div class="nav-logo-mark">X</div>
+    <div class="nav-logo-text"><span>X</span>tract</div>
   </div>
   <div class="nav-links">
     <button class="nav-link active" onclick="showPage('tool')" id="navHome">Home</button>
@@ -831,16 +833,9 @@ input[type=file]{display:none}
     <button class="nav-link" onclick="showPage('contact')" id="navContact">Contact</button>
     <button class="nav-link" onclick="showPage('privacy')" id="navPrivacy">Privacy Policy</button>
   </div>
-  <div class="nav-user">
-    <span id="navUser" style="display:none"></span>
-    <button id="navLogout" onclick="logout()"
-      style="display:none;padding:6px 16px;background:transparent;
-             border:1px solid var(--border);border-radius:3px;
-             color:var(--muted);cursor:pointer;font-size:11px;
-             letter-spacing:1px;font-family:Montserrat,sans-serif;
-             text-transform:uppercase">
-      Logout
-    </button>
+  <div class="nav-right">
+    <span class="nav-user" id="navUser"></span>
+    <button class="nav-logout" id="navLogout" onclick="logout()">Logout</button>
   </div>
 </nav>
 
@@ -983,6 +978,14 @@ input[type=file]{display:none}
       <div class="status-bar" id="statusBar">
         <div class="spinner"></div>
         <span>Reading contract — 15 to 30 seconds</span>
+      </div>
+      <!-- Scroll indicator shown during extraction -->
+      <div id="scrollIndicator" style="display:none;text-align:center;
+           margin-top:12px;animation:pulse 1.5s infinite">
+        <div style="font-size:22px;color:var(--gold)">&#8595;</div>
+        <div style="font-size:10px;color:var(--gold);letter-spacing:2px">
+          PROCESSING
+        </div>
       </div>
 
       <div class="err-bar" id="errBar"></div>
@@ -2579,14 +2582,20 @@ async function wpConvertAll() {
   document.getElementById('wpProgressLabel').textContent =
     '✅ Done! ' + okCount + ' of ' + results.length + ' converted.';
 
-  // If multiple files — zip them
-  if (okCount > 1 && typeof JSZip !== 'undefined') {
+  // Single file = direct download, Multiple = ZIP only
+  if (okCount === 1) {
+    var single = results.find(function(r){ return r.ok; });
+    if (single) {
+      var sa = document.createElement('a');
+      sa.href = single.url; sa.download = single.name; sa.click();
+    }
+  } else if (okCount > 1 && typeof JSZip !== 'undefined') {
     document.getElementById('wpProgressLabel').textContent = 'Creating ZIP...';
     var zip = new JSZip();
     for (var ri = 0; ri < results.length; ri++) {
       if (!results[ri].ok) continue;
-      var resp    = await fetch(results[ri].url);
-      var arrBuf  = await resp.arrayBuffer();
+      var resp   = await fetch(results[ri].url);
+      var arrBuf = await resp.arrayBuffer();
       zip.file(results[ri].name, arrBuf);
     }
     var zipBlob = await zip.generateAsync({type:'blob'});
@@ -2934,8 +2943,14 @@ async function pwConvertAll() {
   document.getElementById('pwProgressLabel').textContent =
     '✅ Done! ' + okCount2 + ' of ' + results.length + ' converted.';
 
-  // ZIP if multiple
-  if (okCount2 > 1 && typeof JSZip !== 'undefined') {
+  // Single = direct, Multiple = ZIP only
+  if (okCount2 === 1) {
+    var single2 = results.find(function(r){ return r.ok; });
+    if (single2) {
+      var sa2 = document.createElement('a');
+      sa2.href = single2.url; sa2.download = single2.name; sa2.click();
+    }
+  } else if (okCount2 > 1 && typeof JSZip !== 'undefined') {
     document.getElementById('pwProgressLabel').textContent = 'Creating ZIP...';
     var zip2    = new JSZip();
     for (var ri2 = 0; ri2 < results.length; ri2++) {
@@ -2974,60 +2989,83 @@ async function pwConvertAll() {
 }
 
 async function pwConvertOne(file) {
-  // Step 1: Read PDF as ArrayBuffer
+  // Read PDF as ArrayBuffer
   var arrayBuf = await new Promise(function(res, rej) {
-    var reader = new FileReader();
-    reader.onload  = function(e) { res(e.target.result); };
-    reader.onerror = function()  { rej(new Error('File read failed')); };
-    reader.readAsArrayBuffer(file);
+    var r = new FileReader();
+    r.onload  = function(e) { res(e.target.result); };
+    r.onerror = function() { rej(new Error('File read failed')); };
+    r.readAsArrayBuffer(file);
   });
 
-  // Step 2: PDF.js — extract text from all pages
-  var pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
-  var paragraphs = [];
+  // Extract text with PDF.js
+  if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js not loaded. Refresh and try again.');
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  var pdfDoc  = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+  var allLines = [];
 
   for (var p = 1; p <= pdfDoc.numPages; p++) {
-    var page    = await pdfDoc.getPage(p);
-    var txtContent = await page.getTextContent();
-
-    // Group items into lines by Y position
-    var lines   = {};
-    txtContent.items.forEach(function(item) {
+    var page = await pdfDoc.getPage(p);
+    var tc   = await page.getTextContent();
+    var lineMap = {};
+    tc.items.forEach(function(item) {
       var y = Math.round(item.transform[5]);
-      if (!lines[y]) lines[y] = [];
-      lines[y].push(item.str);
+      if (!lineMap[y]) lineMap[y] = [];
+      lineMap[y].push(item.str);
     });
-
-    // Sort lines top-to-bottom (descending Y in PDF coords)
-    var sortedYs = Object.keys(lines).map(Number).sort(function(a,b){ return b - a; });
-    sortedYs.forEach(function(y) {
-      var lineText = lines[y].join(' ').trim();
-      if (lineText) paragraphs.push(lineText);
+    var ys = Object.keys(lineMap).map(Number).sort(function(a,b){return b-a;});
+    ys.forEach(function(y){
+      var t = lineMap[y].join(' ').trim();
+      if (t) allLines.push(t);
     });
-
-    // Add page break between pages
-    if (p < pdfDoc.numPages) paragraphs.push('');
+    if (p < pdfDoc.numPages) allLines.push('');
   }
 
-  // Step 3: Build .docx — check library loaded
-  if (typeof docx === 'undefined') {
-    throw new Error('Word library not loaded yet. Please wait 2 seconds and try again.');
+  // Build valid .docx using JSZip (no external docx library needed)
+  if (typeof JSZip === 'undefined') throw new Error('JSZip not loaded. Refresh and try again.');
+
+  function escXml(s) {
+    return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+                  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  var children = paragraphs.map(function(text) {
-    return new docx.Paragraph({
-      children: [new docx.TextRun({ text: text || '', size: 24, font: 'Arial' })],
-      spacing : { after: text ? 120 : 200 }
-    });
-  });
+  var wParagraphs = allLines.map(function(line) {
+    return '<w:p><w:pPr><w:spacing w:after="120"/></w:pPr>' +
+           '<w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>' +
+           '<w:sz w:val="24"/></w:rPr>' +
+           '<w:t xml:space="preserve">' + escXml(line) + '</w:t></w:r></w:p>';
+  }).join('');
 
-  var wordDoc = new docx.Document({
-    sections: [{ properties: {}, children: children }]
-  });
+  var documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">' +
+    '<w:body>' + wParagraphs +
+    '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/>' +
+    '<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>' +
+    '</w:sectPr></w:body></w:document>';
 
-  // Step 4: Pack to blob
-  var docxBlob = await docx.Packer.toBlob(wordDoc);
-  return docxBlob;
+  var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>' +
+    '</Types>';
+
+  var rels = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>' +
+    '</Relationships>';
+
+  var zip = new JSZip();
+  zip.file('[Content_Types].xml', contentTypes);
+  zip.file('_rels/.rels', rels);
+  zip.file('word/document.xml', documentXml);
+
+  var blob = await zip.generateAsync({
+    type: 'blob',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  });
+  return blob;
 }
 
 
