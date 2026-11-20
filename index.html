@@ -949,6 +949,14 @@ input[type=file]{display:none}
           </div>
           <input type="file" id="pdfInput"
             accept=".pdf" onchange="onFile(this)">
+          <label style="display:flex;align-items:flex-start;gap:8px;
+                        margin-top:10px;cursor:pointer;
+                        font-size:11px;color:#b8c0d0;line-height:1.5">
+            <input type="checkbox" id="contractSkipCheck"
+              style="margin-top:2px;accent-color:var(--gold);flex-shrink:0">
+            <span>Skip document check &mdash; I confirm this file is a
+              Residential / Commercial contract (tick this <em>before</em> uploading)</span>
+          </label>
         </div>
       </div>
 
@@ -3114,45 +3122,93 @@ async function getPdfText(file, maxPages) {
   return text.toLowerCase();
 }
 
-// Validate Contract PDF
+// Reads page count + the text of PAGE 1 only (one PDF load, fast)
+async function getPdfFirstPageInfo(file) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf  = await file.arrayBuffer();
+  const pdf  = await pdfjsLib.getDocument({data: buf}).promise;
+  const page = await pdf.getPage(1);
+  const tc   = await page.getTextContent();
+  return {
+    pages    : pdf.numPages,
+    firstText: tc.items.map(function(x){ return x.str; }).join(' ')
+  };
+}
+
+// Decides from PAGE 1 text whether this is a TREC Residential/Commercial
+// contract. Returns: 'ok' | 'loan' | 'notcontract' | 'empty'
+// A loan application also contains the word "Residential"
+// ("Uniform Residential Loan Application"), so the heading must also
+// say "contract" and carry TREC / Texas Real Estate Commission wording.
+function checkContractFirstPage(text) {
+  const sq = (text || '').toLowerCase().replace(/\s+/g, '');
+  if (!sq) return 'empty';
+  if (sq.includes('loanapplication') || sq.includes('uniformresidentialloan')) return 'loan';
+  const hasType     = sq.includes('residential') || sq.includes('commercial');
+  const hasContract = sq.includes('contract');
+  const isTrec      = sq.includes('trec') ||
+                      sq.includes('texasrealestatecommission') ||
+                      sq.includes('promulgated');
+  return (hasType && hasContract && isTrec) ? 'ok' : 'notcontract';
+}
+
+// Validate Contract PDF — page 1 decides, before any extraction work
 async function validateContractPdf(file) {
-  // 1. Must be PDF
   if (!file.name.match(/\.pdf$/i)) {
-    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The contract extractor only accepts PDF format.');
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.');
     return false;
   }
 
-  // 2. Page count must be 8–12 pages
-  const pages = await getPdfPageCount(file);
-  if (pages !== null) {
-    if (pages < 8) {
-      showFileError('📋',
-        'This document has only <strong>' + pages + ' page' + (pages===1?'':'s') + '</strong>.<br><br>' +
-        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
-        'Please check you have uploaded the correct document.');
-      return false;
-    }
-    if (pages > 12) {
-      showFileError('📋',
-        'This document has <strong>' + pages + ' pages</strong>, which exceeds the expected length.<br><br>' +
-        'A valid Texas residential contract is typically <strong>8 to 12 pages</strong>. ' +
-        'If this is a contract with addenda, please upload the main contract only.');
-      return false;
-    }
+  // User confirmed the document: skip the page-1 and page-count checks
+  const skipBox = document.getElementById('contractSkipCheck');
+  if (skipBox && skipBox.checked) return true;
+
+  // PDF reader library failed to load: do not block the user
+  if (typeof pdfjsLib === 'undefined') return true;
+
+  let info;
+  try {
+    info = await getPdfFirstPageInfo(file);
+  } catch (err) {
+    showFileError('📄',
+      'This PDF could not be opened. It may be corrupted or password-protected.');
+    return false;
   }
 
-  // 3. Check for residential/commercial - scan more pages and broader terms
-  const text = await getPdfText(file, 5);
-  const hasResidential = text.includes('residential') || text.includes('one to four') ||
-                         text.includes('1-4 family') || text.includes('single family') ||
-                         text.includes('trec') || text.includes('texas real estate');
-  const hasCommercial  = text.includes('commercial') || text.includes('commercial contract');
-  const hasContract    = text.includes('contract') || text.includes('purchase') ||
-                         text.includes('promulgated');
-  if (!hasResidential && !hasCommercial && !hasContract) {
+  // 1. Page 1 heading must be a Residential / Commercial contract
+  const verdict = checkContractFirstPage(info.firstText);
+  if (verdict === 'empty') {
+    showFileError('📄',
+      'Page 1 has no readable text (scanned image?). ' +
+      'Please upload the original digital PDF of the contract.');
+    return false;
+  }
+  if (verdict === 'loan') {
     showFileError('🏠',
-      'This document does not appear to be a <strong>Texas Real Estate Contract</strong>.<br><br>' +
-      'Please upload a valid Texas residential or commercial purchase contract (TREC form).');
+      'This looks like a <strong>loan application</strong>, not a purchase contract. ' +
+      'Please upload the TREC Residential or Commercial contract.');
+    return false;
+  }
+  if (verdict === 'notcontract') {
+    showFileError('🏠',
+      'Page 1 is not headed as a <strong>Residential or Commercial contract</strong>. ' +
+      'Please upload the TREC contract (e.g. One to Four Family Residential Contract).');
+    return false;
+  }
+
+  // 2. Page limit: a valid Texas residential contract is 8 to 12 pages
+  if (info.pages < 8) {
+    showFileError('📋',
+      'This PDF has only <strong>' + info.pages + ' page' + (info.pages === 1 ? '' : 's') + '</strong>; ' +
+      'a valid contract is <strong>8 to 12 pages</strong>. Please upload the complete contract.');
+    return false;
+  }
+  if (info.pages > 12) {
+    showFileError('📋',
+      'This PDF has <strong>' + info.pages + ' pages</strong>; a valid contract is ' +
+      '<strong>8 to 12 pages</strong>. Upload the main contract only, or tick ' +
+      '<strong>"Skip document check"</strong> if it includes addenda.');
     return false;
   }
 
@@ -3163,7 +3219,7 @@ async function validateContractPdf(file) {
 async function validateCommitmentPdf(file) {
   // 1. Must be PDF
   if (!file.name.match(/\.pdf$/i)) {
-    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.<br><br>The XML generator only accepts PDF format.');
+    showFileError('📄', 'Please upload a <strong>PDF file</strong> only.');
     return false;
   }
 
@@ -3174,8 +3230,8 @@ async function validateCommitmentPdf(file) {
                         /\d{1,2}[-\/\.]\d{1,2}[-\/\.]\d{2,4}.*commitment/i.test(file.name);
   if (hasDateInName) {
     showFileError('⚠️',
-      'This appears to be a <strong>previously generated commitment file</strong> (the filename contains a date).<br><br>' +
-      'Please upload the <strong>original Title Commitment PDF</strong> received from the title company (Form T-7), not a previously exported or renamed file.');
+      'This looks like a <strong>commitment you already created</strong> (date in the filename). ' +
+      'Please upload the original Title Commitment PDF.');
     return false;
   }
 
@@ -3188,17 +3244,14 @@ async function validateCommitmentPdf(file) {
   const text = await getPdfText(file, 20);
   if (!text.replace(/\s/g, '')) {
     showFileError('📑',
-      'No readable text was found in this PDF (it may be a scanned image).<br><br>' +
-      'If you are sure it is a Title Commitment, tick <strong>"Skip document check"</strong> ' +
-      'under the upload box and upload it again.');
+      'No readable text found (scanned image?). If it is a Title Commitment, ' +
+      'tick <strong>"Skip document check"</strong> and upload again.');
     return false;
   }
   if (!looksLikeCommitment(text)) {
     showFileError('📑',
-      'This document does not appear to be a <strong>Title Commitment</strong>.<br><br>' +
-      'Neither "Commitment" nor "Schedule A" was found anywhere in this PDF.<br><br>' +
-      'Please upload a Texas Title Commitment (Form T-7). If you are sure it is one, ' +
-      'tick <strong>"Skip document check"</strong> under the upload box and upload again.');
+      'No "Commitment" or "Schedule A" found &mdash; this is not a <strong>Title Commitment</strong>. ' +
+      'If you are sure it is one, tick <strong>"Skip document check"</strong> and upload again.');
     return false;
   }
 
@@ -3222,6 +3275,7 @@ function looksLikeCommitment(text) {
 // RESET FUNCTIONS
 // ============================================
 function resetContract() {
+  var _sk = document.getElementById('contractSkipCheck'); if (_sk) _sk.checked = false;
   pdfFile = null;
   document.getElementById('uploadZone').classList.remove('has-file');
   document.getElementById('uploadTitle').textContent = 'Click to Upload';
@@ -3237,6 +3291,7 @@ function resetContract() {
 }
 
 function resetCommitment() {
+  var _sk = document.getElementById('commitSkipCheck'); if (_sk) _sk.checked = false;
   commitFile = null;
   commitText = '';
   xmlText    = '';
