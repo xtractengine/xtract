@@ -3136,16 +3136,21 @@ async function getPdfFirstPageInfo(file) {
   };
 }
 
-// Decides from PAGE 1 text whether this is a TREC Residential/Commercial
-// contract. Returns: 'ok' | 'loan' | 'notcontract' | 'empty'
-// A loan application also contains the word "Residential"
-// ("Uniform Residential Loan Application"), so the heading must also
-// say "contract" and carry TREC / Texas Real Estate Commission wording.
+// Decides from PAGE 1 text whether this is a TREC purchase contract.
+// Returns: 'ok' | 'loan' | 'notcontract' | 'empty'
+// Accepted contract types: Residential, Commercial, Unimproved Property,
+// Farm and Ranch, New Home. A loan application also contains the word
+// "Residential" ("Uniform Residential Loan Application"), so the heading
+// must also say "contract" and carry TREC / Texas Real Estate Commission wording.
 function checkContractFirstPage(text) {
   const sq = (text || '').toLowerCase().replace(/\s+/g, '');
   if (!sq) return 'empty';
   if (sq.includes('loanapplication') || sq.includes('uniformresidentialloan')) return 'loan';
-  const hasType     = sq.includes('residential') || sq.includes('commercial');
+  const hasType     = sq.includes('residential')        ||
+                      sq.includes('commercial')         ||
+                      sq.includes('unimprovedproperty') ||
+                      sq.includes('farmandranch')       ||
+                      sq.includes('newhome');
   const hasContract = sq.includes('contract');
   const isTrec      = sq.includes('trec') ||
                       sq.includes('texasrealestatecommission') ||
@@ -3192,8 +3197,8 @@ async function validateContractPdf(file) {
   }
   if (verdict === 'notcontract') {
     showFileError('🏠',
-      'Page 1 is not headed as a <strong>Residential or Commercial contract</strong>. ' +
-      'Please upload the TREC contract (e.g. One to Four Family Residential Contract).');
+      'Page 1 is not headed as a <strong>TREC purchase contract</strong> (Residential, Commercial, ' +
+      'Unimproved Property, etc.). Please upload the correct contract.');
     return false;
   }
 
